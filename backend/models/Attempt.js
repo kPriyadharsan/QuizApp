@@ -97,7 +97,8 @@ const attemptSchema = new mongoose.Schema({
 attemptSchema.index({ userId: 1, quizId: 1 }, { unique: true });
 attemptSchema.index({ quizId: 1, status: 1 });
 attemptSchema.index({ quizId: 1, userId: 1 });
-attemptSchema.index({ sessionId: 1 });
+attemptSchema.index({ sessionId: 1 }, { unique: true });
+attemptSchema.index({ expiresAt: 1 });
 attemptSchema.index({ lastSeenAt: 1 });
 
 export default mongoose.model('Attempt', attemptSchema);

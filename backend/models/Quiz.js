@@ -37,4 +37,7 @@ const quizSchema = new mongoose.Schema({
     allowQuestionImages: { type: Boolean, default: true }
 }, { timestamps: true });
 
+quizSchema.index({ status: 1, startTime: 1 });
+quizSchema.index({ isActive: 1, startTime: 1 });
+
 export default mongoose.model('Quiz', quizSchema);

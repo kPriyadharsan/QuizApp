@@ -175,12 +175,25 @@ export const deleteQuiz = async (req, res) => {
 
 export const getResults = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await Submission.countDocuments({});
         const submissions = await Submission.find({})
             .populate('userId', 'name email score')
             .populate('quizId', 'title')
-            .sort({ score: -1 });
+            .sort({ score: -1, submittedAt: 1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
 
-        res.json(submissions);
+        res.json({
+            submissions,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching results', error: error.message });
     }
@@ -188,8 +201,23 @@ export const getResults = async (req, res) => {
 
 export const getUsers = async (req, res) => {
     try {
-        const users = await User.find({ role: 'user' }).select('-password');
-        res.json(users);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await User.countDocuments({ role: 'user' });
+        const users = await User.find({ role: 'user' })
+            .select('name email score isBlocked createdAt')
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        res.json({
+            users,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching users', error: error.message });
     }
@@ -264,34 +292,30 @@ export const unblockUser = async (req, res) => {
 export const getLiveAttendees = async (req, res) => {
     try {
         const { quizId } = req.params;
-        const quiz = await Quiz.findById(quizId);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const quiz = await Quiz.findById(quizId).lean();
         if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
 
-        // Get submitted users
-        const submissions = await Submission.find({ quizId })
-            .populate('userId', 'name email isBlocked');
-
-        const submitted = submissions.map(s => ({
-            _id: s.userId?._id,
-            name: s.userId?.name,
-            email: s.userId?.email,
-            isBlocked: s.userId?.isBlocked,
-            score: s.score,
-            isSuspicious: s.isSuspicious,
-            tabSwitches: s.tabSwitches,
-            fullscreenExits: s.fullscreenExits,
-            submittedAt: s.submittedAt,
-            status: 'submitted',
-            flagCount: s.tabSwitches + s.fullscreenExits
-        }));
+        const activeCount = quiz.liveMonitoringEnabled 
+            ? await Attempt.countDocuments({ quizId, status: { $in: ['IN_PROGRESS', 'EXPIRED'] } })
+            : 0;
+        const submittedCount = await Submission.countDocuments({ quizId });
+        const total = activeCount + submittedCount;
 
         let active = [];
-        const totalUsers = await User.countDocuments({ role: 'user' });
+        let submitted = [];
 
-        if (quiz.liveMonitoringEnabled) {
-            // Get currently active quiz takers
+        // Fetch active attempts if the range overlaps
+        if (quiz.liveMonitoringEnabled && skip < activeCount) {
+            const activeLimit = Math.min(limit, activeCount - skip);
             const activeStates = await Attempt.find({ quizId, status: { $in: ['IN_PROGRESS', 'EXPIRED'] } })
-                .populate('userId', 'name email isBlocked');
+                .populate('userId', 'name email isBlocked')
+                .skip(skip)
+                .limit(activeLimit)
+                .lean();
 
             active = activeStates.map(s => {
                 const expiresAtMs = new Date(s.expiresAt).getTime();
@@ -319,13 +343,43 @@ export const getLiveAttendees = async (req, res) => {
             });
         }
 
+        // Fetch submissions if the range overlaps
+        const submissionSkip = Math.max(0, skip - activeCount);
+        const submissionLimit = limit - active.length;
+
+        if (submissionLimit > 0 && submissionSkip < submittedCount) {
+            const submissions = await Submission.find({ quizId })
+                .populate('userId', 'name email isBlocked')
+                .skip(submissionSkip)
+                .limit(submissionLimit)
+                .lean();
+
+            submitted = submissions.map(s => ({
+                _id: s.userId?._id,
+                name: s.userId?.name,
+                email: s.userId?.email,
+                isBlocked: s.userId?.isBlocked,
+                score: s.score,
+                isSuspicious: s.isSuspicious,
+                tabSwitches: s.tabSwitches,
+                fullscreenExits: s.fullscreenExits,
+                submittedAt: s.submittedAt,
+                status: 'submitted',
+                flagCount: s.tabSwitches + s.fullscreenExits
+            }));
+        }
+
+        const totalUsers = await User.countDocuments({ role: 'user' });
+
         res.json({
             liveMonitoringEnabled: quiz.liveMonitoringEnabled,
             attendees: [...active, ...submitted],
             totalUsers,
-            attendeeCount: active.length + submitted.length,
-            activeCount: active.length,
-            submittedCount: submitted.length
+            attendeeCount: total,
+            activeCount,
+            submittedCount,
+            page,
+            pages: Math.ceil(total / limit)
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching attendees', error: error.message });

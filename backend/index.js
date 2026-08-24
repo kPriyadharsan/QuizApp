@@ -134,4 +134,45 @@ mongoose
         process.exit(1);
     });
 
+// MongoDB Connection Monitoring
+mongoose.connection.on('connected', () => {
+    console.log('🟢 [MongoDB] Connection established successfully');
+});
+mongoose.connection.on('disconnected', () => {
+    console.warn('🔴 [MongoDB] Connection lost');
+});
+mongoose.connection.on('error', (err) => {
+    console.error('❌ [MongoDB] Connection error occurred:', err);
+});
+
+// Graceful Shutdown
+const gracefulShutdown = async (signal) => {
+    console.log(`⚠️ Received ${signal}. Starting graceful shutdown...`);
+    
+    // Stop accepting new HTTP requests
+    httpServer.close(() => {
+        console.log('HTTP server closed.');
+    });
+
+    // Close Socket.IO connections
+    if (io) {
+        io.close(() => {
+            console.log('Socket.IO connections closed.');
+        });
+    }
+
+    // Close MongoDB connection
+    try {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed.');
+        process.exit(0);
+    } catch (err) {
+        console.error('Error during database close:', err);
+        process.exit(1);
+    }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 

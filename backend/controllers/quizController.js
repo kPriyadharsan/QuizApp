@@ -341,6 +341,8 @@ export const getQuizInfo = async (req, res) => {
                 if (matchedQ) {
                     const questionClone = JSON.parse(JSON.stringify(matchedQ));
                     delete questionClone.correctAnswer;
+                    delete questionClone.explanation;
+                    delete questionClone.explanationImage;
                     questionClone.options = qOrder.options;
                     questions.push(questionClone);
                 }
@@ -527,6 +529,8 @@ export const startQuiz = async (req, res) => {
         const frontendQuestions = shuffledQuestions.map(q => {
             const mappedQ = { ...q };
             delete mappedQ.correctAnswer;
+            delete mappedQ.explanation;
+            delete mappedQ.explanationImage;
             const matchOrder = questionOrder.find(qo => qo.questionId.toString() === q._id.toString());
             if (matchOrder) {
                 mappedQ.options = matchOrder.options;
@@ -808,6 +812,25 @@ export const submitQuiz = async (req, res) => {
 
         res.status(201).json(responsePayload);
     } catch (error) {
+        if (error.code === 11000) {
+            try {
+                const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id }).lean();
+                const responsePayload = {
+                    message: 'Quiz submitted successfully.',
+                    total: questions.length,
+                    submission: {
+                        _id: finalSub._id,
+                        submittedAt: finalSub.submittedAt,
+                        isSuspicious: finalSub.isSuspicious
+                    }
+                };
+                if (quiz.showScoreAfterSubmit) responsePayload.submission.score = finalSub.score;
+                if (quiz.showCorrectAnswers) responsePayload.submission.answers = finalSub.answers;
+                return res.status(200).json(responsePayload);
+            } catch (innerErr) {
+                return res.status(500).json({ message: 'Error retrieving submission after conflict', error: innerErr.message });
+            }
+        }
         res.status(500).json({ message: 'Error submitting quiz', error: error.message });
     }
 };
@@ -861,13 +884,17 @@ export const getMyResults = async (req, res) => {
 
         const publishedSubmissions = submissions.filter(s => s.quizId && s.quizId.resultsPublished);
 
-        // Fetch question counts using the cache
+        // Fetch question counts in a single aggregation query to avoid N+1 queries
+        const quizIds = publishedSubmissions.map(s => s.quizId._id);
+        const questionCounts = await Question.aggregate([
+            { $match: { quizId: { $in: quizIds } } },
+            { $group: { _id: "$quizId", count: { $sum: 1 } } }
+        ]);
+        const countsMap = Object.fromEntries(questionCounts.map(qc => [qc._id.toString(), qc.count]));
+
         for (let sub of publishedSubmissions) {
             const actualQuizIdStr = sub.quizId._id.toString();
-            // Load into cache if not present (to get question counts)
-            await resolveQuiz(actualQuizIdStr);
-            const cacheHit = quizCache.get(actualQuizIdStr);
-            sub.totalQuestions = cacheHit ? cacheHit.questions.length : 0;
+            sub.totalQuestions = countsMap[actualQuizIdStr] || 0;
 
             if (!sub.quizId.showCorrectAnswers) {
                 if (sub.answers) {

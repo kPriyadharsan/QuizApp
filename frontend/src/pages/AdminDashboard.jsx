@@ -85,6 +85,18 @@ const AdminDashboard = () => {
     const [results, setResults] = useState([]);
     const [users, setUsers] = useState([]);
     const [attendees, setAttendees] = useState(null);
+
+    const [usersPage, setUsersPage] = useState(1);
+    const [usersPages, setUsersPages] = useState(1);
+    const [usersTotal, setUsersTotal] = useState(0);
+
+    const [resultsPage, setResultsPage] = useState(1);
+    const [resultsPages, setResultsPages] = useState(1);
+    const [resultsTotal, setResultsTotal] = useState(0);
+
+    const [attendeesPage, setAttendeesPage] = useState(1);
+    const [attendeesPages, setAttendeesPages] = useState(1);
+    const [attendeesTotal, setAttendeesTotal] = useState(0);
     const [selectedQuizForAttendees, setSelectedQuizForAttendees] = useState(null);
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -143,6 +155,19 @@ const AdminDashboard = () => {
     const formPanelRef = useRef(null);
     const questionListRef = useRef(null);
 
+    const renderPagination = (page, pages, setPage) => {
+        if (pages <= 1) return null;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 20, marginBottom: 10 }}>
+                <NeuButton small disabled={page <= 1} onClick={() => setPage(page - 1)}>◀ Prev</NeuButton>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                    Page {page} of {pages}
+                </span>
+                <NeuButton small disabled={page >= pages} onClick={() => setPage(page + 1)}>Next ▶</NeuButton>
+            </div>
+        );
+    };
+
     const getStats = () => {
         if (!attendees || !attendees.attendees) return { total: 0, connected: 0, reconnecting: 0, offline: 0, submitted: 0, expired: 0, suspicious: 0 };
         let total = attendees.attendees.length;
@@ -199,9 +224,15 @@ const AdminDashboard = () => {
     useEffect(() => {
         fetchQuizzes();
         fetchAppSettings();
-        if (activeTab === 'results') fetchResults();
-        if (activeTab === 'users') fetchUsers();
-    }, [activeTab]);
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'results') fetchResults(resultsPage);
+    }, [activeTab, resultsPage]);
+
+    useEffect(() => {
+        if (activeTab === 'users') fetchUsers(usersPage);
+    }, [activeTab, usersPage]);
 
     useEffect(() => {
         if (selectedQuizId) {
@@ -362,13 +393,23 @@ const AdminDashboard = () => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/all-quizzes`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
         if (res) { setQuizzes(res.data); if (res.data.length > 0 && !selectedQuizId) setSelectedQuizId(res.data[0]._id); }
     };
-    const fetchResults = async () => {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/results`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
-        if (res) setResults(res.data);
+    const fetchResults = async (page = 1) => {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/results?page=${page}&limit=10`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
+        if (res && res.data) {
+            setResults(res.data.submissions || []);
+            setResultsPage(res.data.page || 1);
+            setResultsPages(res.data.pages || 1);
+            setResultsTotal(res.data.total || 0);
+        }
     };
-    const fetchUsers = async () => {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
-        if (res) setUsers(res.data);
+    const fetchUsers = async (page = 1) => {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?page=${page}&limit=10`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
+        if (res && res.data) {
+            setUsers(res.data.users || []);
+            setUsersPage(res.data.page || 1);
+            setUsersPages(res.data.pages || 1);
+            setUsersTotal(res.data.total || 0);
+        }
     };
     const fetchAppSettings = async () => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/settings`).catch(console.error);
@@ -379,11 +420,14 @@ const AdminDashboard = () => {
         if (res) setRegistrationOpen(res.data.registrationOpen);
     };
 
-    const fetchLiveAttendees = async (quizId) => {
+    const fetchLiveAttendees = async (quizId, page = 1) => {
         try {
-            console.log('🔄 Fetching attendee snapshot for:', quizId);
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/live-attendees/${quizId}`, { headers: { Authorization: `Bearer ${user.token}` } });
+            console.log('🔄 Fetching attendee snapshot for:', quizId, 'page:', page);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/live-attendees/${quizId}?page=${page}&limit=10`, { headers: { Authorization: `Bearer ${user.token}` } });
             setAttendees(res.data); 
+            setAttendeesPage(res.data.page || 1);
+            setAttendeesPages(res.data.pages || 1);
+            setAttendeesTotal(res.data.attendeeCount || 0);
             
             // Only reset alerts if we switch to a DIFFERENT quiz
             if (selectedQuizForAttendees !== quizId) {
@@ -928,7 +972,7 @@ const AdminDashboard = () => {
                                         </h3>
                                         <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 600 }}>
                                             {attendees.activeCount > 0 && <span style={{ color: '#1a7a3a' }}>🟢 {attendees.activeCount} active</span>}
-                                            <span style={{ color: '#8090a0' }}>Status: {attendees.attendeeCount} Joined / {attendees.totalUsers} Total</span>
+                                            <span style={{ color: '#8090a0' }}>Status: {attendeesTotal} Joined / {attendees.totalUsers} Total</span>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: 8 }}>
@@ -1161,6 +1205,7 @@ const AdminDashboard = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                {renderPagination(attendeesPage, attendeesPages, (p) => fetchLiveAttendees(selectedQuizForAttendees, p))}
 
                                 {/* Modal for view details */}
                                 {selectedAttendee && (
@@ -1536,7 +1581,7 @@ const AdminDashboard = () => {
             {/* ── RESULTS TAB ── */}
             {activeTab === 'results' && (
                 <div>
-                    <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>All Submissions</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>All Submissions ({resultsTotal} total)</h3>
                     <div style={{ ...neu.card, overflow: 'hidden' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                             <thead>
@@ -1574,6 +1619,7 @@ const AdminDashboard = () => {
                             </tbody>
                         </table>
                     </div>
+                    {renderPagination(resultsPage, resultsPages, setResultsPage)}
                 </div>
             )}
 
@@ -1582,7 +1628,7 @@ const AdminDashboard = () => {
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                         <h3 style={{ fontWeight: 700, fontSize: 16 }}>All Users</h3>
-                        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{users.length} users registered</span>
+                        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{usersTotal} users registered</span>
                     </div>
                     <div style={{ ...neu.card, overflow: 'hidden' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -1629,6 +1675,7 @@ const AdminDashboard = () => {
                             </tbody>
                         </table>
                     </div>
+                    {renderPagination(usersPage, usersPages, setUsersPage)}
                 </div>
             )}
         </div>

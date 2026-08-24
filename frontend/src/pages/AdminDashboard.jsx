@@ -142,6 +142,9 @@ const AdminDashboard = () => {
         console.log('📡 Admin Monitoring Link: Initializing...', { quizId: selectedQuizForAttendees, url: apiUrl });
         
         const socket = io(apiUrl, {
+            auth: {
+                token: user.token
+            },
             reconnection: true,
             reconnectionAttempts: 20,
             reconnectionDelay: 1000,
@@ -171,7 +174,7 @@ const AdminDashboard = () => {
             setSocketConnected(false);
         });
         
-        socket.on('flag:update', (data) => {
+        socket.on('monitor:flag', (data) => {
             console.log('🚩 LIVE SECURITY ALERT RECEIVED:', data);
             
             setFlagAlerts(prev => {
@@ -215,7 +218,7 @@ const AdminDashboard = () => {
                 socketRef.current = null;
             }
         };
-    }, [selectedQuizForAttendees]);
+    }, [selectedQuizForAttendees, user.token]);
 
     useEffect(() => {
         const h = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpenDropdownId(null); };

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 /* ── Confetti ─────────────────────────────────────────── */
 const COLORS = ['#6c63ff','#a29bfe','#fd79a8','#fdcb6e','#00b894','#e17055','#74b9ff','#ff7675'];
@@ -162,6 +163,7 @@ const QuizPage = () => {
     const resultRef     = useRef(null);
     const warningTimer  = useRef(null);
     const isSyncingRef  = useRef(false);
+    const studentSocketRef = useRef(null);
 
     useEffect(() => { answersRef.current    = answers;    }, [answers]);
     useEffect(() => { quizStartedRef.current = quizStarted; }, [quizStarted]);
@@ -374,6 +376,54 @@ const QuizPage = () => {
         const syncInterval = setInterval(syncState, 15000);
         return () => clearInterval(syncInterval);
     }, [quizStarted, submitting, result, attemptId, user.token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* Real-time Socket.IO Connection for Students */
+    useEffect(() => {
+        if (!quizStarted || !attemptId || submitting || result) return;
+
+        const socket = io(import.meta.env.VITE_API_URL, {
+            auth: {
+                token: user.token
+            },
+            transports: ['websocket', 'polling']
+        });
+        studentSocketRef.current = socket;
+
+        socket.on('connect', () => {
+            console.log('✅ STUDENT SOCKET CONNECTED:', socket.id);
+            socket.emit('attempt:join', {
+                attemptId,
+                quizId: quiz?._id || quizCode
+            });
+        });
+
+        socket.on('attempt:join_confirmed', (data) => {
+            console.log('🛰️ ATTEMPT ROOM LINK VERIFIED:', data.attemptId);
+        });
+
+        socket.on('attempt:force-submit', () => {
+            console.warn('⚠️ Admin forced submit!');
+            handleSubmit(true);
+        });
+
+        socket.on('attempt:session-invalid', () => {
+            console.warn('⚠️ Session invalid!');
+            alert('Your session has been invalidated by the administrator or server.');
+            navigate('/');
+        });
+
+        socket.on('error', (err) => {
+            console.error('⚠️ STUDENT SOCKET ERROR:', err.message);
+        });
+
+        return () => {
+            if (socket) {
+                socket.emit('attempt:leave');
+                socket.disconnect();
+            }
+            studentSocketRef.current = null;
+        };
+    }, [quizStarted, attemptId, submitting, result, quiz?._id, quizCode, user.token, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* Anti-cheat */
     useEffect(() => {

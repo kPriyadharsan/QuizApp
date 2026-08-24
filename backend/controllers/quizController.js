@@ -890,7 +890,7 @@ export const reportFlag = async (req, res) => {
             const roomSize = io.sockets.adapter.rooms.get(roomName)?.size || 0;
             console.log(`📡 BROADCASTING Flag Update: [Room: ${roomName}] [Viewers: ${roomSize}] [User: ${user?.name}] [Flag: ${flagType}]`);
             
-            io.to(roomName).emit('flag:update', {
+            io.to(roomName).emit('monitor:flag', {
                 userId: userIdStr,
                 userName: user?.name || 'Unknown',
                 userEmail: user?.email || '',

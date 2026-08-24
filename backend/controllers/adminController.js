@@ -5,8 +5,13 @@ import Submission from '../models/Submission.js';
 import QuizState from '../models/QuizState.js';
 import Attempt from '../models/Attempt.js';
 import AppSettings from '../models/AppSettings.js';
-import { invalidateQuizCache, activeQuizzes } from './quizController.js';
+import { invalidateQuizCache, activeQuizzes, evaluateAttemptScore } from './quizController.js';
 import { getIO } from '../socket.js';
+
+const isQuizLocked = (quiz) => {
+    if (!quiz) return false;
+    return quiz.status === 'LIVE' || quiz.status === 'COMPLETED' || new Date().getTime() >= new Date(quiz.startTime).getTime();
+};
 
 // Helper to get or create settings
 const getSettings = async () => {
@@ -35,11 +40,15 @@ export const createQuiz = async (req, res) => {
 
 export const addQuestion = async (req, res) => {
     try {
-        const { quizId, question, options, correctAnswer, image } = req.body;
+        const { quizId, question, options, correctAnswer, image, explanation, explanationImage } = req.body;
 
         const quiz = await Quiz.findById(quizId);
         if (!quiz) {
             return res.status(404).json({ message: 'Quiz not found' });
+        }
+
+        if (isQuizLocked(quiz)) {
+            return res.status(400).json({ message: 'Settings locked: Cannot add questions after the quiz has started.' });
         }
 
         const newQuestion = await Question.create({
@@ -47,7 +56,9 @@ export const addQuestion = async (req, res) => {
             question,
             options,
             correctAnswer,
-            image
+            image,
+            explanation,
+            explanationImage
         });
 
         invalidateQuizCache(quizId);
@@ -70,15 +81,21 @@ export const getQuestions = async (req, res) => {
 export const updateQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
-        const { question, options, correctAnswer, image } = req.body;
+        const { question, options, correctAnswer, image, explanation, explanationImage } = req.body;
         
+        const existingQuestion = await Question.findById(questionId);
+        if (!existingQuestion) return res.status(404).json({ message: 'Question not found' });
+
+        const quiz = await Quiz.findById(existingQuestion.quizId);
+        if (quiz && isQuizLocked(quiz)) {
+            return res.status(400).json({ message: 'Settings locked: Cannot update questions after the quiz has started.' });
+        }
+
         const updatedQuestion = await Question.findByIdAndUpdate(
             questionId,
-            { question, options, correctAnswer, image },
+            { question, options, correctAnswer, image, explanation, explanationImage },
             { new: true, runValidators: true }
         );
-        
-        if (!updatedQuestion) return res.status(404).json({ message: 'Question not found' });
         
         invalidateQuizCache(updatedQuestion.quizId);
         res.json(updatedQuestion);
@@ -90,11 +107,18 @@ export const updateQuestion = async (req, res) => {
 export const deleteQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
-        const deletedQuestion = await Question.findByIdAndDelete(questionId);
+
+        const existingQuestion = await Question.findById(questionId);
+        if (!existingQuestion) return res.status(404).json({ message: 'Question not found' });
+
+        const quiz = await Quiz.findById(existingQuestion.quizId);
+        if (quiz && isQuizLocked(quiz)) {
+            return res.status(400).json({ message: 'Settings locked: Cannot delete questions after the quiz has started.' });
+        }
+
+        await Question.findByIdAndDelete(questionId);
         
-        if (!deletedQuestion) return res.status(404).json({ message: 'Question not found' });
-        
-        invalidateQuizCache(deletedQuestion.quizId);
+        invalidateQuizCache(existingQuestion.quizId);
         res.json({ message: 'Question deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting question', error: error.message });
@@ -375,13 +399,8 @@ export const forceSubmitAttempt = async (req, res) => {
         // Evaluate and create Submission
         const questionsList = await Question.find({ quizId: quiz._id }).lean();
         const answersObj = attempt.answers ? Object.fromEntries(attempt.answers) : {};
-        let score = 0;
-        const evaluatedAnswers = Object.keys(answersObj).map(qId => {
-            const question = questionsList.find(q => q._id.toString() === qId);
-            const isCorrect = question && question.correctAnswer === answersObj[qId];
-            if (isCorrect) score += 1;
-            return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
-        });
+        
+        const { score, evaluatedAnswers } = evaluateAttemptScore(answersObj, questionsList, quiz);
 
         const submission = await Submission.create({
             userId: attempt.userId,
@@ -391,7 +410,8 @@ export const forceSubmitAttempt = async (req, res) => {
             isSuspicious: true,
             tabSwitches: attempt.flagCount || 0,
             fullscreenExits: 0,
-            submittedAt: new Date()
+            submittedAt: new Date(),
+            isPreview: attempt.isPreview || false
         });
 
         // Clean memory cache & compatible QuizState
@@ -448,5 +468,63 @@ export const invalidateAttemptSession = async (req, res) => {
         res.json({ message: 'Attempt session invalidated successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error invalidating session', error: error.message });
+    }
+};
+
+export const updateQuiz = async (req, res) => {
+    try {
+        const { quizId } = req.params;
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+        // Enforce lock check on Live/Completed or started quizzes
+        const isLocked = isQuizLocked(quiz);
+        const criticalFields = [
+            'startTime', 'duration', 'randomizeQuestions', 'randomizeOptions',
+            'numberOfQuestions', 'allowQuestionNavigation', 'allowAnswerChange',
+            'marksPerQuestion', 'negativeMarkingEnabled', 'negativeMarks',
+            'oneAttemptOnly', 'singleActiveSession', 'fullscreenRequired', 'tabSwitchMonitoring'
+        ];
+
+        if (isLocked) {
+            for (const field of criticalFields) {
+                if (req.body[field] !== undefined && req.body[field] !== quiz[field]) {
+                    // Normalize Date string comparison for startTime
+                    if (field === 'startTime') {
+                        if (new Date(req.body.startTime).getTime() === new Date(quiz.startTime).getTime()) {
+                            continue;
+                        }
+                    }
+                    return res.status(400).json({ message: `Settings locked: Cannot modify critical field '${field}' once the quiz has started.` });
+                }
+            }
+        }
+
+        // Fields permitted for modification
+        const allowedFields = [
+            'title', 'description', 'instructions', 'timezone', 'status',
+            'startTime', 'duration', 'randomizeQuestions', 'randomizeOptions',
+            'numberOfQuestions', 'allowQuestionNavigation', 'allowAnswerChange',
+            'marksPerQuestion', 'negativeMarkingEnabled', 'negativeMarks',
+            'oneAttemptOnly', 'singleActiveSession', 'fullscreenRequired', 'tabSwitchMonitoring',
+            'liveMonitoringEnabled', 'resultsPublished', 'leaderboardPublished',
+            'showScoreAfterSubmit', 'showCorrectAnswers', 'showExplanations', 'allowQuestionImages'
+        ];
+
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                if (field === 'startTime') {
+                    quiz.startTime = new Date(req.body.startTime);
+                } else {
+                    quiz[field] = req.body[field];
+                }
+            }
+        }
+
+        await quiz.save();
+        invalidateQuizCache(quizId);
+        res.json({ message: 'Quiz updated successfully', quiz });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating quiz', error: error.message });
     }
 };

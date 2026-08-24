@@ -89,7 +89,8 @@ const attemptSchema = new mongoose.Schema({
             type: Date, 
             default: Date.now 
         }
-    }]
+    }],
+    isPreview: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // Compound indexes

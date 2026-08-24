@@ -22,11 +22,24 @@ const MyResults = () => {
     const { user } = useAuth();
     const nav = useNavigate();
 
+    const [selectedSubDetail, setSelectedSubDetail] = useState(null);
+    const [expandedQuestions, setExpandedQuestions] = useState([]);
+
     useEffect(() => {
         axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/my-results`, { headers: { Authorization: `Bearer ${user.token}` } })
             .then(r => setResults(r.data))
             .catch(console.error).finally(() => setLoading(false));
     }, [user.token]);
+
+    const handleViewDetails = async (submissionId) => {
+        try {
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/submission/${submissionId}`, { headers: { Authorization: `Bearer ${user.token}` } });
+            setSelectedSubDetail(res.data.submission);
+            setExpandedQuestions(res.data.questions);
+        } catch {
+            alert('Failed to load submission details');
+        }
+    };
 
     const totalAverage = results.length > 0
         ? Math.round(results.reduce((acc, r) => acc + (r.totalQuestions > 0 ? (r.score / r.totalQuestions) * 100 : 0), 0) / results.length)
@@ -83,7 +96,7 @@ const MyResults = () => {
                         const band = getBand(r.score, r.totalQuestions);
                         const pct = r.totalQuestions > 0 ? Math.round((r.score / r.totalQuestions) * 100) : 0;
                         return (
-                            <div key={r._id || i} className="card card-hover" style={{ padding: '24px', borderRadius: 24, animation: `pageIn 0.5s ease ${i * 0.08}s both` }}>
+                            <div key={r._id || i} className="card card-hover" style={{ padding: '24px', borderRadius: 24, cursor: 'pointer', animation: `pageIn 0.5s ease ${i * 0.08}s both` }} onClick={() => handleViewDetails(r._id)}>
                                 <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
                                     <div style={{ 
                                         width: 56, height: 56, borderRadius: 18, background: band.bg, 
@@ -100,7 +113,7 @@ const MyResults = () => {
                                                 {(() => {
                                                     try {
                                                         return new Date(r.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                                    } catch (e) {
+                                                    } catch {
                                                         return '';
                                                     }
                                                 })()}
@@ -119,12 +132,15 @@ const MyResults = () => {
                                             </div>
                                         </div>
                                         
-                                        <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                                        <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100, background: band.bg, color: band.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                                 {band.label}
                                             </span>
                                             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'rgba(0,0,0,0.04)', color: '#666' }}>
                                                 {pct}% Accuracy
+                                            </span>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand-accent)', marginLeft: 'auto' }}>
+                                                Click to Review Questions →
                                             </span>
                                         </div>
                                     </div>
@@ -132,6 +148,99 @@ const MyResults = () => {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Submission Details Modal */}
+            {selectedSubDetail && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 20
+                }} onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}>
+                    <div style={{
+                        background: 'white', padding: 28, borderRadius: 24, maxWidth: 640, width: '100%',
+                        maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.15)'
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 16 }}>
+                            <div>
+                                <h3 style={{ fontWeight: 800, fontSize: 20, color: '#111', margin: 0 }}>{selectedSubDetail.quizId?.title}</h3>
+                                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: '4px 0 0' }}>
+                                    Score: <strong>{selectedSubDetail.score}</strong> · Submitted: {new Date(selectedSubDetail.submittedAt).toLocaleString()}
+                                </p>
+                            </div>
+                            <button className="btn btn-ghost" onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}>✕ Close</button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            {!selectedSubDetail.quizId?.showCorrectAnswers && !selectedSubDetail.quizId?.showExplanations ? (
+                                <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.03)', borderRadius: 16 }}>
+                                    <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, margin: 0, fontWeight: 500 }}>
+                                        🔒 Correct answers and explanations are disabled for this quiz.
+                                    </p>
+                                </div>
+                            ) : (
+                                expandedQuestions.map((q, idx) => {
+                                    const studentAns = selectedSubDetail.answers?.find(a => a.questionId === q._id);
+                                    return (
+                                        <div key={q._id} style={{ padding: 18, borderRadius: 16, background: '#f8f9fa', border: '1px solid rgba(0,0,0,0.04)' }}>
+                                            <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 12 }}>
+                                                Q{idx + 1}. {q.question}
+                                            </div>
+                                            {q.image && (
+                                                <img src={q.image} alt="Question" style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 10, marginBottom: 12, display: 'block' }} />
+                                            )}
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, marginBottom: 12 }}>
+                                                {q.options.map((opt, oIdx) => {
+                                                    const isSelected = studentAns?.selectedOption === opt;
+                                                    const isCorrectOpt = q.correctAnswer === opt;
+                                                    
+                                                    let optColor = '#4a5568';
+                                                    let optWeight = 400;
+                                                    let optBg = 'transparent';
+
+                                                    if (selectedSubDetail.quizId?.showCorrectAnswers) {
+                                                        if (isCorrectOpt) {
+                                                            optColor = '#1a7a3a';
+                                                            optWeight = 700;
+                                                            optBg = 'rgba(48,209,88,0.08)';
+                                                        } else if (isSelected) {
+                                                            optColor = '#cc000a';
+                                                            optWeight = 700;
+                                                            optBg = 'rgba(255,59,48,0.08)';
+                                                        }
+                                                    } else if (isSelected) {
+                                                        optColor = 'var(--brand-accent)';
+                                                        optWeight = 700;
+                                                        optBg = 'rgba(108,99,255,0.08)';
+                                                    }
+
+                                                    return (
+                                                        <div key={oIdx} style={{ padding: '8px 12px', borderRadius: 8, background: optBg, color: optColor, fontWeight: optWeight, display: 'flex', gap: 8 }}>
+                                                            <strong>{['A','B','C','D'][oIdx]}.</strong> {opt}
+                                                            {selectedSubDetail.quizId?.showCorrectAnswers && isCorrectOpt && ' ✓ (Correct)'}
+                                                            {isSelected && ' 👤 (Your Selection)'}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {selectedSubDetail.quizId?.showExplanations && q.explanation && (
+                                                <div style={{ borderTop: '1px dashed rgba(0,0,0,0.1)', paddingTop: 12, marginTop: 8 }}>
+                                                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase', marginBottom: 4 }}>Explanation</div>
+                                                    <div style={{ fontSize: 13, color: '#4a5568', lineHeight: 1.5 }}>{q.explanation}</div>
+                                                    {q.explanationImage && (
+                                                        <img src={q.explanationImage} alt="Explanation" style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 10, marginTop: 8 }} />
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

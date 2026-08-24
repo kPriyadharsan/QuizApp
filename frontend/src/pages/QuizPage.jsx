@@ -561,7 +561,9 @@ const QuizPage = () => {
             if (isResuming) {
                 setQuizStarted(true);
             } else {
-                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/start`, { quizId: quiz?._id || quizCode }, { headers: { Authorization: `Bearer ${user.token}` } });
+                const searchParams = new URLSearchParams(window.location.search);
+                const isPreview = searchParams.get('preview') === 'true';
+                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/start`, { quizId: quiz?._id || quizCode, isPreview }, { headers: { Authorization: `Bearer ${user.token}` } });
                 setQuestions(res.data.questions);
                 setTimeLeft(Math.max(0, Math.floor((new Date(res.data.expiresAt).getTime() - new Date(res.data.serverTime).getTime()) / 1000)));
                 setAttemptId(res.data.attemptId);
@@ -586,6 +588,9 @@ const QuizPage = () => {
     };
 
     const handleOptionSelect = async (questionId, option) => {
+        if (quiz && quiz.allowAnswerChange === false && answers[questionId] !== undefined) {
+            return;
+        }
         // 1. Update UI immediately
         const newAnswers = { ...answers, [questionId]: option };
         setAnswers(newAnswers);
@@ -831,14 +836,15 @@ const QuizPage = () => {
             {/* Question Nav Pills (scroll on mobile) */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', marginBottom: 24, overflowX: 'auto', padding: '4px 2px 12px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {questions.map((q, i) => (
-                    <button key={q._id} onClick={() => setCurrentQ(i)} style={{
+                    <button key={q._id} disabled={quiz && quiz.allowQuestionNavigation === false && i !== currentQ} onClick={() => setCurrentQ(i)} style={{
                         minWidth: 40, height: 40, borderRadius: 12, flexShrink: 0,
                         border: i === currentQ ? '2px solid var(--brand-accent)' : '1px solid rgba(0,0,0,0.06)',
                         background: answers[q._id] ? 'linear-gradient(135deg,#6c63ff,#a29bfe)' : i === currentQ ? 'rgba(108,99,255,0.08)' : 'white',
                         color: answers[q._id] ? 'white' : i === currentQ ? 'var(--brand-accent)' : '#666',
-                        fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                        fontWeight: 700, fontSize: 13, cursor: quiz && quiz.allowQuestionNavigation === false && i !== currentQ ? 'not-allowed' : 'pointer',
                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                         boxShadow: i === currentQ ? '0 8px 16px rgba(108,99,255,0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
+                        opacity: quiz && quiz.allowQuestionNavigation === false && i !== currentQ ? 0.5 : 1
                     }}>
                         {i + 1}
                     </button>
@@ -898,7 +904,7 @@ const QuizPage = () => {
 
             {/* Navigation */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingBottom: 40, flexWrap: 'wrap' }}>
-                <button className="btn btn-ghost" disabled={currentQ === 0} onClick={() => setCurrentQ(p => Math.max(0, p-1))} style={{ opacity: currentQ === 0 ? 0.4 : 1 }}>
+                <button className="btn btn-ghost" disabled={currentQ === 0 || (quiz && quiz.allowQuestionNavigation === false)} onClick={() => setCurrentQ(p => Math.max(0, p-1))} style={{ opacity: (currentQ === 0 || (quiz && quiz.allowQuestionNavigation === false)) ? 0.4 : 1 }}>
                     ← Previous
                 </button>
 

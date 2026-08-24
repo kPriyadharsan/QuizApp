@@ -13,7 +13,8 @@ const submissionSchema = new mongoose.Schema({
     tabSwitches: { type: Number, default: 0 },
     fullscreenExits: { type: Number, default: 0 },
     attemptNumber: { type: Number, default: 1 },
-    submittedAt: { type: Date, default: Date.now }
+    submittedAt: { type: Date, default: Date.now },
+    isPreview: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // Optimize leaderboard queries

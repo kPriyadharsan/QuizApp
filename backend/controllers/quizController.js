@@ -8,6 +8,28 @@ import QuizState from '../models/QuizState.js';
 import Attempt from '../models/Attempt.js';
 import { getIO } from '../socket.js';
 
+export const evaluateAttemptScore = (answersObj, questionsList, quiz) => {
+    let score = 0;
+    const marksPerQuestion = quiz.marksPerQuestion !== undefined ? quiz.marksPerQuestion : 1;
+    const negativeMarkingEnabled = quiz.negativeMarkingEnabled || false;
+    const negativeMarks = quiz.negativeMarks !== undefined ? quiz.negativeMarks : 0;
+
+    const evaluatedAnswers = Object.keys(answersObj).map(qId => {
+        const question = questionsList.find(q => q._id.toString() === qId);
+        const isCorrect = question && question.correctAnswer === answersObj[qId];
+        
+        if (isCorrect) {
+            score += marksPerQuestion;
+        } else if (answersObj[qId] && negativeMarkingEnabled) {
+            score -= negativeMarks;
+        }
+
+        return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
+    });
+
+    return { score, evaluatedAnswers };
+};
+
 // --- Data Structures for Caching (Designed for future Redis migration) ---
 
 // 1. Quiz Metadata & Questions Cache
@@ -278,16 +300,10 @@ export const getQuizInfo = async (req, res) => {
                 attempt.submittedAt = new Date();
                 await attempt.save();
 
-                let score = 0;
                 const questionsList = quizCache.get(actualQuizIdStr).questions;
                 const answersObj = attempt.answers ? Object.fromEntries(attempt.answers) : {};
 
-                const evaluatedAnswers = Object.keys(answersObj).map(qId => {
-                    const question = questionsList.find(q => q._id.toString() === qId);
-                    const isCorrect = question && question.correctAnswer === answersObj[qId];
-                    if (isCorrect) score += 1;
-                    return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
-                });
+                const { score, evaluatedAnswers } = evaluateAttemptScore(answersObj, questionsList, quiz);
 
                 await Submission.create({
                     userId: req.user.id,
@@ -296,7 +312,8 @@ export const getQuizInfo = async (req, res) => {
                     score,
                     isSuspicious: true,
                     tabSwitches: attempt.flagCount || 0,
-                    fullscreenExits: 0
+                    fullscreenExits: 0,
+                    isPreview: attempt.isPreview || false
                 });
 
                 // Clear from memory cache & legacy QuizState
@@ -379,47 +396,65 @@ export const startQuiz = async (req, res) => {
             return res.status(403).json({ message: 'You are not eligible to take this quiz.' });
         }
 
-        // Check if user already submitted
-        const existingSubmission = await Submission.exists({ userId: req.user.id, quizId: quiz._id });
-        if (existingSubmission) {
-            return res.status(400).json({ message: 'You have already submitted this quiz' });
-        }
+        const isPreview = req.body.isPreview && req.user.role === 'admin';
 
-        // Check if Attempt already exists
-        let existingAttempt = await Attempt.findOne({ userId: req.user.id, quizId: quiz._id });
-        if (existingAttempt) {
-            if (existingAttempt.status === 'IN_PROGRESS' || existingAttempt.status === 'CREATED') {
-                return res.status(400).json({ message: 'Quiz already started. Please resume.' });
-            } else {
-                return res.status(400).json({ message: 'You have already attempted this quiz.' });
+        if (isPreview) {
+            // Delete previous preview attempts/submissions for this admin to start clean
+            await Attempt.deleteMany({ userId: req.user.id, quizId: quiz._id });
+            await Submission.deleteMany({ userId: req.user.id, quizId: quiz._id });
+            await QuizState.deleteMany({ userId: req.user.id, quizId: quiz._id });
+        } else {
+            // Check if user already submitted
+            const existingSubmission = await Submission.exists({ userId: req.user.id, quizId: quiz._id });
+            if (existingSubmission) {
+                return res.status(400).json({ message: 'You have already submitted this quiz' });
+            }
+
+            // Check if Attempt already exists
+            let existingAttempt = await Attempt.findOne({ userId: req.user.id, quizId: quiz._id });
+            if (existingAttempt) {
+                if (existingAttempt.status === 'IN_PROGRESS' || existingAttempt.status === 'CREATED') {
+                    return res.status(400).json({ message: 'Quiz already started. Please resume.' });
+                } else {
+                    return res.status(400).json({ message: 'You have already attempted this quiz.' });
+                }
+            }
+
+            // Verify start time
+            if (quiz.startTime) {
+                const nowMs = Date.now();
+                const startTimeMs = new Date(quiz.startTime).getTime();
+                if (nowMs < startTimeMs) {
+                    return res.status(403).json({ message: 'This quiz has not started yet.' });
+                }
             }
         }
 
-        // Verify start time
-        if (quiz.startTime) {
-            const nowMs = Date.now();
-            const startTimeMs = new Date(quiz.startTime).getTime();
-            if (nowMs < startTimeMs) {
-                return res.status(403).json({ message: 'This quiz has not started yet.' });
-            }
-        }
-
-        // Scramble questions and option order (do not alter cache directly)
+        // Scramble questions and option order based on Quiz settings
         const cachedQuestions = quizCache.get(actualQuizIdStr).questions;
         let shuffledQuestions = JSON.parse(JSON.stringify(cachedQuestions));
 
-        // Shuffle questions
-        for (let i = shuffledQuestions.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+        // 1. Randomize questions if configured
+        if (quiz.randomizeQuestions) {
+            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+            }
         }
 
-        // Shuffle options for each question
+        // 2. Limit questions count if configured
+        if (quiz.numberOfQuestions > 0 && quiz.numberOfQuestions < shuffledQuestions.length) {
+            shuffledQuestions = shuffledQuestions.slice(0, quiz.numberOfQuestions);
+        }
+
+        // 3. Shuffle options if configured
         const questionOrder = shuffledQuestions.map(q => {
             let options = [...q.options];
-            for (let i = options.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [options[i], options[j]] = [options[j], options[i]];
+            if (quiz.randomizeOptions) {
+                for (let i = options.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [options[i], options[j]] = [options[j], options[i]];
+                }
             }
             return {
                 questionId: q._id,
@@ -452,7 +487,8 @@ export const startQuiz = async (req, res) => {
             ipAddress: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
             userAgent: req.headers['user-agent'] || '',
             flagCount: 0,
-            flagEvents: []
+            flagEvents: [],
+            isPreview
         });
 
         // Write compatible QuizState record to DB
@@ -544,13 +580,8 @@ export const saveQuizState = async (req, res) => {
 
             const questionsList = quizCache.get(actualQuizIdStr).questions;
             const answersObj = attempt.answers ? Object.fromEntries(attempt.answers) : {};
-            let score = 0;
-            const evaluatedAnswers = Object.keys(answersObj).map(qId => {
-                const question = questionsList.find(q => q._id.toString() === qId);
-                const isCorrect = question && question.correctAnswer === answersObj[qId];
-                if (isCorrect) score += 1;
-                return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
-            });
+
+            const { score, evaluatedAnswers } = evaluateAttemptScore(answersObj, questionsList, quiz);
 
             await Submission.create({
                 userId: req.user.id,
@@ -559,7 +590,8 @@ export const saveQuizState = async (req, res) => {
                 score,
                 isSuspicious: true,
                 tabSwitches: attempt.flagCount || 0,
-                fullscreenExits: 0
+                fullscreenExits: 0,
+                isPreview: attempt.isPreview || false
             });
 
             // Clear from memory cache & legacy QuizState
@@ -719,18 +751,8 @@ export const submitQuiz = async (req, res) => {
         // 5. Evaluate score and create Submission
         const previousSubmissionsCount = await Submission.countDocuments({ userId: req.user.id, quizId: quiz._id });
 
-        let score = 0;
-        const evaluatedAnswers = Array.from(answersMap.entries()).map(([qId, selectedOption]) => {
-            const question = questions.find(q => q._id.toString() === qId);
-            const isCorrect = question && question.correctAnswer === selectedOption;
-            if (isCorrect) score += 1;
-
-            return {
-                questionId: qId,
-                selectedOption,
-                isCorrect
-            };
-        });
+        const answersObj = Object.fromEntries(answersMap);
+        const { score, evaluatedAnswers } = evaluateAttemptScore(answersObj, questions, quiz);
 
         let submission;
         try {
@@ -742,7 +764,8 @@ export const submitQuiz = async (req, res) => {
                 isSuspicious: isSuspicious || isExpired || false,
                 tabSwitches: tabSwitches || 0,
                 fullscreenExits: 0,
-                attemptNumber: previousSubmissionsCount + 1
+                attemptNumber: previousSubmissionsCount + 1,
+                isPreview: attempt.isPreview || false
             });
         } catch (err) {
             if (err.code === 11000) {
@@ -764,7 +787,25 @@ export const submitQuiz = async (req, res) => {
         await QuizState.findOneAndDelete({ userId: req.user.id, quizId: quiz._id });
 
         console.log(`✅ [Quiz] User ${userIdStr} submitted Quiz: ${actualQuizIdStr} | Score: ${score}/${questions.length} | Status: ${targetStatus}`);
-        res.status(201).json({ message: 'Quiz submitted successfully. Results will be published later.', total: questions.length, submission });
+        const responsePayload = {
+            message: 'Quiz submitted successfully.',
+            total: questions.length,
+            submission: {
+                _id: submission._id,
+                submittedAt: submission.submittedAt,
+                isSuspicious: submission.isSuspicious
+            }
+        };
+
+        if (quiz.showScoreAfterSubmit) {
+            responsePayload.submission.score = submission.score;
+        }
+
+        if (quiz.showCorrectAnswers) {
+            responsePayload.submission.answers = submission.answers;
+        }
+
+        res.status(201).json(responsePayload);
     } catch (error) {
         res.status(500).json({ message: 'Error submitting quiz', error: error.message });
     }
@@ -815,7 +856,7 @@ export const getLeaderboard = async (req, res) => {
 export const getMyResults = async (req, res) => {
     try {
         const submissions = await Submission.find({ userId: req.user.id })
-            .populate('quizId', 'title resultsPublished').lean();
+            .populate('quizId', 'title resultsPublished showCorrectAnswers showExplanations').lean();
 
         const publishedSubmissions = submissions.filter(s => s.quizId && s.quizId.resultsPublished);
 
@@ -826,6 +867,16 @@ export const getMyResults = async (req, res) => {
             await resolveQuiz(actualQuizIdStr);
             const cacheHit = quizCache.get(actualQuizIdStr);
             sub.totalQuestions = cacheHit ? cacheHit.questions.length : 0;
+
+            if (!sub.quizId.showCorrectAnswers) {
+                if (sub.answers) {
+                    sub.answers = sub.answers.map(ans => {
+                        const copy = { ...ans };
+                        delete copy.isCorrect;
+                        return copy;
+                    });
+                }
+            }
         }
 
         res.json(publishedSubmissions);
@@ -1152,5 +1203,44 @@ export const syncAnswers = async (req, res) => {
     } catch (error) {
         console.error('Error in syncAnswers:', error);
         res.status(500).json({ message: 'Error synchronizing answers', error: error.message });
+    }
+};
+
+export const getSubmissionDetail = async (req, res) => {
+    try {
+        const { submissionId } = req.params;
+        const submission = await Submission.findOne({ _id: submissionId, userId: req.user.id })
+            .populate('quizId', 'title showCorrectAnswers showExplanations').lean();
+
+        if (!submission) {
+            return res.status(404).json({ message: 'Submission not found' });
+        }
+
+        const questionsList = await Question.find({ quizId: submission.quizId._id }).lean();
+
+        const questions = questionsList.map(q => {
+            const copy = {
+                _id: q._id,
+                question: q.question,
+                options: q.options,
+                image: q.image
+            };
+
+            if (submission.quizId.showCorrectAnswers) {
+                copy.correctAnswer = q.correctAnswer;
+            }
+            if (submission.quizId.showExplanations) {
+                copy.explanation = q.explanation;
+                copy.explanationImage = q.explanationImage;
+            }
+            return copy;
+        });
+
+        res.json({
+            submission,
+            questions
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching submission details', error: error.message });
     }
 };

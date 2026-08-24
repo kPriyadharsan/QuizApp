@@ -100,6 +100,32 @@ const AdminDashboard = () => {
     const [startTime, setStartTime] = useState(toLocalInputValue(new Date()));
     const [liveMonitoringEnabled, setLiveMonitoringEnabled] = useState(false);
 
+    const [editingQuizId, setEditingQuizId] = useState(null);
+    const [description, setDescription] = useState('');
+    const [instructions, setInstructions] = useState('');
+    const [timezone, setTimezone] = useState('UTC');
+    const [status, setStatus] = useState('DRAFT');
+
+    const [randomizeQuestions, setRandomizeQuestions] = useState(false);
+    const [randomizeOptions, setRandomizeOptions] = useState(false);
+    const [numberOfQuestions, setNumberOfQuestions] = useState(0);
+    const [allowQuestionNavigation, setAllowQuestionNavigation] = useState(true);
+    const [allowAnswerChange, setAllowAnswerChange] = useState(true);
+
+    const [marksPerQuestion, setMarksPerQuestion] = useState(1);
+    const [negativeMarkingEnabled, setNegativeMarkingEnabled] = useState(false);
+    const [negativeMarks, setNegativeMarks] = useState(0);
+
+    const [oneAttemptOnly, setOneAttemptOnly] = useState(true);
+    const [singleActiveSession, setSingleActiveSession] = useState(true);
+    const [fullscreenRequired, setFullscreenRequired] = useState(false);
+    const [tabSwitchMonitoring, setTabSwitchMonitoring] = useState(false);
+
+    const [showScoreAfterSubmit, setShowScoreAfterSubmit] = useState(true);
+    const [showCorrectAnswers, setShowCorrectAnswers] = useState(false);
+    const [showExplanations, setShowExplanations] = useState(false);
+    const [allowQuestionImages, setAllowQuestionImages] = useState(true);
+
     const [selectedQuizId, setSelectedQuizId] = useState('');
     const [questionsList, setQuestionsList] = useState([]);
     const [editingQuestionId, setEditingQuestionId] = useState(null);
@@ -108,6 +134,8 @@ const AdminDashboard = () => {
     const [correctAnswer, setCorrectAnswer] = useState('');
     const [questionImage, setQuestionImage] = useState('');
     const [imagePreview, setImagePreview] = useState('');
+    const [explanation, setExplanation] = useState('');
+    const [explanationImage, setExplanationImage] = useState('');
 
     const [openDropdownId, setOpenDropdownId] = useState(null);
     const dropdownRef = useRef(null);
@@ -425,27 +453,92 @@ const AdminDashboard = () => {
         await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/unblock-user`, { userId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
         fetchUsers();
     };
+    const handleEditQuizClick = (q) => {
+        setEditingQuizId(q._id);
+        setTitle(q.title);
+        setQuizCode(q.quizCode);
+        setDuration(q.duration);
+        setStartTime(toLocalInputValue(new Date(q.startTime)));
+        setLiveMonitoringEnabled(q.liveMonitoringEnabled || false);
+        setDescription(q.description || '');
+        setInstructions(q.instructions || '');
+        setTimezone(q.timezone || 'UTC');
+        setStatus(q.status || 'DRAFT');
+        setRandomizeQuestions(q.randomizeQuestions || false);
+        setRandomizeOptions(q.randomizeOptions || false);
+        setNumberOfQuestions(q.numberOfQuestions || 0);
+        setAllowQuestionNavigation(q.allowQuestionNavigation !== undefined ? q.allowQuestionNavigation : true);
+        setAllowAnswerChange(q.allowAnswerChange !== undefined ? q.allowAnswerChange : true);
+        setMarksPerQuestion(q.marksPerQuestion !== undefined ? q.marksPerQuestion : 1);
+        setNegativeMarkingEnabled(q.negativeMarkingEnabled || false);
+        setNegativeMarks(q.negativeMarks || 0);
+        setOneAttemptOnly(q.oneAttemptOnly !== undefined ? q.oneAttemptOnly : true);
+        setSingleActiveSession(q.singleActiveSession !== undefined ? q.singleActiveSession : true);
+        setFullscreenRequired(q.fullscreenRequired || false);
+        setTabSwitchMonitoring(q.tabSwitchMonitoring || false);
+        setShowScoreAfterSubmit(q.showScoreAfterSubmit !== undefined ? q.showScoreAfterSubmit : true);
+        setShowCorrectAnswers(q.showCorrectAnswers || false);
+        setShowExplanations(q.showExplanations || false);
+        setAllowQuestionImages(q.allowQuestionImages !== undefined ? q.allowQuestionImages : true);
+
+        if (formPanelRef.current) formPanelRef.current.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const handleCancelEditQuiz = () => {
+        setEditingQuizId(null);
+        setTitle('');
+        setQuizCode('');
+        setDuration(30);
+        setStartTime(toLocalInputValue(new Date()));
+        setLiveMonitoringEnabled(false);
+        setDescription('');
+        setInstructions('');
+        setTimezone('UTC');
+        setStatus('DRAFT');
+        setRandomizeQuestions(false);
+        setRandomizeOptions(false);
+        setNumberOfQuestions(0);
+        setAllowQuestionNavigation(true);
+        setAllowAnswerChange(true);
+        setMarksPerQuestion(1);
+        setNegativeMarkingEnabled(false);
+        setNegativeMarks(0);
+        setOneAttemptOnly(true);
+        setSingleActiveSession(true);
+        setFullscreenRequired(false);
+        setTabSwitchMonitoring(false);
+        setShowScoreAfterSubmit(true);
+        setShowCorrectAnswers(false);
+        setShowExplanations(false);
+        setAllowQuestionImages(true);
+    };
+
     const handleCreateQuiz = async (e) => {
         e.preventDefault();
-        // Convert the datetime-local value (local time) → UTC ISO string before sending
         const startTimeUTC = new Date(startTime).toISOString();
-        await axios.post(
-            `${import.meta.env.VITE_API_URL}/api/admin/create-quiz`, 
-            { title, quizCode, duration, startTime: startTimeUTC, liveMonitoringEnabled }, 
-            { headers: { Authorization: `Bearer ${user.token}` } }
-        ).catch(e => { 
-            alert(e.response?.data?.message || 'Error'); 
-            return null; 
-        }).then(res => { 
-            if (res) { 
-                setTitle(''); 
-                setQuizCode(''); 
-                setDuration(30); 
-                setStartTime(toLocalInputValue(new Date())); 
-                setLiveMonitoringEnabled(false);
-                fetchQuizzes(); 
-            } 
-        });
+        const payload = {
+            title, quizCode, duration, startTime: startTimeUTC, liveMonitoringEnabled,
+            description, instructions, timezone, status,
+            randomizeQuestions, randomizeOptions, numberOfQuestions,
+            allowQuestionNavigation, allowAnswerChange,
+            marksPerQuestion, negativeMarkingEnabled, negativeMarks,
+            oneAttemptOnly, singleActiveSession, fullscreenRequired, tabSwitchMonitoring,
+            showScoreAfterSubmit, showCorrectAnswers, showExplanations, allowQuestionImages
+        };
+
+        try {
+            if (editingQuizId) {
+                await axios.put(`${import.meta.env.VITE_API_URL}/api/admin/quiz/${editingQuizId}`, payload, { headers: { Authorization: `Bearer ${user.token}` } });
+                alert('Quiz updated successfully!');
+            } else {
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/create-quiz`, payload, { headers: { Authorization: `Bearer ${user.token}` } });
+                alert('Quiz created successfully!');
+            }
+            handleCancelEditQuiz();
+            fetchQuizzes();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error processing quiz');
+        }
     };
     const fetchQuestions = async (quizId) => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/questions/${quizId}`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
@@ -459,6 +552,8 @@ const AdminDashboard = () => {
         setCorrectAnswer('');
         setQuestionImage('');
         setImagePreview('');
+        setExplanation('');
+        setExplanationImage('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -469,6 +564,8 @@ const AdminDashboard = () => {
         setCorrectAnswer(q.correctAnswer);
         setQuestionImage(q.image || '');
         setImagePreview(q.image || '');
+        setExplanation(q.explanation || '');
+        setExplanationImage(q.explanationImage || '');
         // Only scroll the right-side form panel to the top — never touch window scroll
         if (formPanelRef.current) {
             formPanelRef.current.scrollTop = 0;
@@ -490,12 +587,12 @@ const AdminDashboard = () => {
             if (editingQuestionId) {
                 // Edit
                 await axios.put(`${import.meta.env.VITE_API_URL}/api/admin/question/${editingQuestionId}`, 
-                    { question, options, correctAnswer, image: questionImage }, 
+                    { question, options, correctAnswer, image: questionImage, explanation, explanationImage }, 
                     { headers: { Authorization: `Bearer ${user.token}` } });
             } else {
                 // Add
                 await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/add-question`, 
-                    { quizId: selectedQuizId, question, options, correctAnswer, image: questionImage }, 
+                    { quizId: selectedQuizId, question, options, correctAnswer, image: questionImage, explanation, explanationImage }, 
                     { headers: { Authorization: `Bearer ${user.token}` } });
             }
             
@@ -604,31 +701,137 @@ const AdminDashboard = () => {
                     {/* Left Column: Management & Monitor */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                         {/* Create Quiz */}
-                        <div style={{ ...neu.card, padding: '28px 24px' }}>
-                            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: 'var(--color-text-primary)' }}>＋ Create New Quiz</h3>
+                        <div ref={formPanelRef} style={{ ...neu.card, padding: '28px 24px' }}>
+                            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: 'var(--color-text-primary)' }}>
+                                {editingQuizId ? `✏️ Edit Quiz: ${title}` : '＋ Create New Quiz'}
+                            </h3>
                             <form onSubmit={handleCreateQuiz} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                {/* --- BASIC INFO --- */}
+                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 4 }}>
+                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Basic Information</h4>
+                                </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <NeuInput label="Quiz Title" type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. ECE Fundamentals 2026" />
                                 </div>
-                                <NeuInput label="Quiz Code" type="text" required value={quizCode} onChange={e => setQuizCode(e.target.value.toUpperCase())} placeholder="e.g. ECE2026" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }} />
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <NeuInput label="Quiz Code" type="text" required value={quizCode} onChange={e => setQuizCode(e.target.value.toUpperCase())} placeholder="e.g. ECE2026" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }} />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Description</label>
+                                    <textarea 
+                                        value={description} 
+                                        onChange={e => setDescription(e.target.value)} 
+                                        placeholder="Add a brief description..." 
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', minHeight: 60, fontFamily: 'inherit', fontSize: 13 }}
+                                    />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Instructions</label>
+                                    <textarea 
+                                        value={instructions} 
+                                        onChange={e => setInstructions(e.target.value)} 
+                                        placeholder="Add instructions for takers..." 
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', minHeight: 60, fontFamily: 'inherit', fontSize: 13 }}
+                                    />
+                                </div>
+
+                                {/* --- SCHEDULE --- */}
+                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Schedule & Timeline</h4>
+                                </div>
                                 <NeuInput label="Duration (min)" type="number" required value={duration} onChange={e => setDuration(Number(e.target.value))} min="1" />
+                                <NeuInput label="Timezone" type="text" required value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="UTC" />
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <NeuInput label="Start Time" type="datetime-local" required value={startTime} onChange={e => setStartTime(e.target.value)} />
                                 </div>
-                                <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                    <input 
-                                        type="checkbox" 
-                                        id="liveMonitoringEnabled" 
-                                        checked={liveMonitoringEnabled} 
-                                        onChange={e => setLiveMonitoringEnabled(e.target.checked)} 
-                                        style={{ width: 18, height: 18, cursor: 'pointer' }}
-                                    />
-                                    <label htmlFor="liveMonitoringEnabled" style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
-                                        Enable Real-time Monitoring & Anti-cheat Banners
-                                    </label>
+                                <div>
+                                    <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Status</label>
+                                    <select 
+                                        value={status} 
+                                        onChange={e => setStatus(e.target.value)} 
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', background: 'white', fontSize: 13 }}
+                                    >
+                                        <option value="DRAFT">Draft</option>
+                                        <option value="SCHEDULED">Scheduled</option>
+                                        <option value="LIVE">Live</option>
+                                        <option value="COMPLETED">Completed</option>
+                                    </select>
                                 </div>
-                                <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                                    <NeuButton type="submit" variant="primary">Create Quiz →</NeuButton>
+
+                                {/* --- QUESTION SETTINGS --- */}
+                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Question Settings</h4>
+                                </div>
+                                <NeuInput label="Max Questions to Ask (0 for all)" type="number" required value={numberOfQuestions} onChange={e => setNumberOfQuestions(Number(e.target.value))} min="0" />
+                                <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+                                    {[
+                                        { id: 'randomizeQuestions', checked: randomizeQuestions, set: setRandomizeQuestions, label: 'Randomize Questions Order' },
+                                        { id: 'randomizeOptions', checked: randomizeOptions, set: setRandomizeOptions, label: 'Randomize Options Order' },
+                                        { id: 'allowQuestionNavigation', checked: allowQuestionNavigation, set: setAllowQuestionNavigation, label: 'Allow Question Navigation (Back/Forth)' },
+                                        { id: 'allowAnswerChange', checked: allowAnswerChange, set: setAllowAnswerChange, label: 'Allow Changing Selected Answers' }
+                                    ].map(cfg => (
+                                        <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                            <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* --- SCORING --- */}
+                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Scoring Settings</h4>
+                                </div>
+                                <NeuInput label="Marks per Question" type="number" required value={marksPerQuestion} onChange={e => setMarksPerQuestion(Number(e.target.value))} min="1" />
+                                <NeuInput label="Negative Marks" type="number" required value={negativeMarks} onChange={e => setNegativeMarks(Number(e.target.value))} min="0" step="0.25" disabled={!negativeMarkingEnabled} />
+                                <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input type="checkbox" id="negativeMarkingEnabled" checked={negativeMarkingEnabled} onChange={e => setNegativeMarkingEnabled(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                    <label htmlFor="negativeMarkingEnabled" style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>Enable Negative Marking</label>
+                                </div>
+
+                                {/* --- SECURITY --- */}
+                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Security & Integrity</h4>
+                                </div>
+                                <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {[
+                                        { id: 'oneAttemptOnly', checked: oneAttemptOnly, set: setOneAttemptOnly, label: 'Enforce One Attempt Only per student' },
+                                        { id: 'singleActiveSession', checked: singleActiveSession, set: setSingleActiveSession, label: 'Enforce Single Active Session' },
+                                        { id: 'fullscreenRequired', checked: fullscreenRequired, set: setFullscreenRequired, label: 'Require Fullscreen Mode' },
+                                        { id: 'tabSwitchMonitoring', checked: tabSwitchMonitoring, set: setTabSwitchMonitoring, label: 'Monitor Tab Switches & Evict' }
+                                    ].map(cfg => (
+                                        <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                            <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* --- RESULTS & MONITORING --- */}
+                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Results & Monitoring</h4>
+                                </div>
+                                <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {[
+                                        { id: 'liveMonitoringEnabled', checked: liveMonitoringEnabled, set: setLiveMonitoringEnabled, label: 'Enable Real-time Monitoring & Anti-cheat Banners' },
+                                        { id: 'showScoreAfterSubmit', checked: showScoreAfterSubmit, set: setShowScoreAfterSubmit, label: 'Show Score Instantly After Submission' },
+                                        { id: 'showCorrectAnswers', checked: showCorrectAnswers, set: setShowCorrectAnswers, label: 'Show Correct Answers on Results Page' },
+                                        { id: 'showExplanations', checked: showExplanations, set: setShowExplanations, label: 'Show Explanations on Results Page' },
+                                        { id: 'allowQuestionImages', checked: allowQuestionImages, set: setAllowQuestionImages, label: 'Allow Question Images' }
+                                    ].map(cfg => (
+                                        <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                            <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                                    {editingQuizId && (
+                                        <NeuButton type="button" onClick={handleCancelEditQuiz} variant="secondary">Cancel</NeuButton>
+                                    )}
+                                    <NeuButton type="submit" variant="primary">
+                                        {editingQuizId ? 'Update Quiz ✓' : 'Create Quiz →'}
+                                    </NeuButton>
                                 </div>
                             </form>
                         </div>
@@ -683,6 +886,8 @@ const AdminDashboard = () => {
                                                             display: 'flex', flexDirection: 'column', gap: 4
                                                         }}>
                                                             {[
+                                                                { icon: '⚙️', label: 'Edit Settings', action: () => { handleEditQuizClick(quiz); setOpenDropdownId(null); } },
+                                                                { icon: '👁', label: 'Admin Preview', action: () => { window.open(`/quiz/${quiz.quizCode}?preview=true`, '_blank'); setOpenDropdownId(null); } },
                                                                 { icon: quiz.resultsPublished ? '🙈' : '📤', label: quiz.resultsPublished ? 'Hide Results' : 'Publish Results', action: () => handleToggleResults(quiz._id) },
                                                                 { icon: quiz.leaderboardPublished ? '🙈' : '🏆', label: quiz.leaderboardPublished ? 'Hide Leaderboard' : 'Publish Leaderboard', action: () => handleToggleLeaderboard(quiz._id) },
                                                                 ...(new Date().getTime() < new Date(quiz.startTime).getTime() ? [
@@ -1294,6 +1499,29 @@ const AdminDashboard = () => {
                                             );
                                         })}
                                     </div>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div>
+                                        <label style={labelStyle}>Explanation (Optional)</label>
+                                        <textarea 
+                                            value={explanation} 
+                                            onChange={e => setExplanation(e.target.value)} 
+                                            placeholder="Provide correct answer explanation..." 
+                                            style={{ 
+                                                width: '100%', padding: '10px 14px', borderRadius: 10, 
+                                                border: '1px solid rgba(0,0,0,0.08)', outline: 'none', 
+                                                minHeight: 60, fontFamily: 'inherit', fontSize: 13 
+                                            }} 
+                                        />
+                                    </div>
+                                    <NeuInput 
+                                        label="Explanation Image URL (optional)" 
+                                        type="text" 
+                                        value={explanationImage} 
+                                        onChange={e => setExplanationImage(e.target.value)} 
+                                        placeholder="https://example.com/image.png" 
+                                    />
                                 </div>
 
                                 <NeuButton type="submit" variant={editingQuestionId ? 'primary' : 'success'} style={{ marginTop: 4 }}>

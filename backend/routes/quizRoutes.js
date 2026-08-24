@@ -1,5 +1,5 @@
 import express from 'express';
-import { getActiveQuizzes, getQuizInfo, startQuiz, submitQuiz, getLeaderboard, getPublishedLeaderboards, getMyResults, saveQuizState, verifyQuizCode, reportFlag, getAttemptState, syncAnswers } from '../controllers/quizController.js';
+import { getActiveQuizzes, getQuizInfo, startQuiz, submitQuiz, getLeaderboard, getPublishedLeaderboards, getMyResults, saveQuizState, verifyQuizCode, reportFlag, getAttemptState, syncAnswers, getSubmissionDetail } from '../controllers/quizController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -16,5 +16,6 @@ router.post('/attempt/:attemptId/answers', protect, syncAnswers);
 router.get('/leaderboards', protect, getPublishedLeaderboards);
 router.get('/leaderboard/:quizId', protect, getLeaderboard);
 router.get('/my-results', protect, getMyResults);
+router.get('/submission/:submissionId', protect, getSubmissionDetail);
 
 export default router;

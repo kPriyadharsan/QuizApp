@@ -137,6 +137,8 @@ const QuizPage = () => {
 
     const [syncStatus, setSyncStatus] = useState('synced');
     const dbRef = useRef(null);
+    const [connState, setConnState] = useState('CONNECTED');
+    const recoveryMutex = useRef(false);
 
     const [attemptId, setAttemptId] = useState(null);
     const [sessionId, setSessionId] = useState(null);
@@ -377,7 +379,53 @@ const QuizPage = () => {
         return () => clearInterval(syncInterval);
     }, [quizStarted, submitting, result, attemptId, user.token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    /* Real-time Socket.IO Connection for Students */
+    /* Session State Connection Recovery Function */
+    const runRecovery = useCallback(async () => {
+        if (recoveryMutex.current || !attemptIdRef.current || !dbRef.current) return;
+        recoveryMutex.current = true;
+        setConnState('RECOVERED');
+
+        try {
+            console.log('🔄 [Recovery] Recovering session state from server...');
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/attempt/${attemptIdRef.current}/state`, {
+                headers: { Authorization: `Bearer ${user.token}` }
+            });
+
+            if (res.data.status === 'EXPIRED') {
+                setConnState('EXPIRED');
+                handleSubmit(true);
+                recoveryMutex.current = false;
+                return;
+            }
+            if (res.data.status === 'SUBMITTED') {
+                setConnState('SUBMITTED');
+                setResult(res.data);
+                recoveryMutex.current = false;
+                return;
+            }
+
+            // Sync answers
+            const serverAnswers = res.data.answers || {};
+            const { mergedAnswers, localAnswersToSync } = await syncLocalAnswersWithState(dbRef.current, attemptIdRef.current, serverAnswers);
+            setAnswers(mergedAnswers);
+            setTimeLeft(res.data.remainingSeconds);
+
+            // Sync any local answers to the server
+            if (localAnswersToSync.length > 0) {
+                setSyncStatus('pending');
+                await triggerSync();
+            }
+
+            setConnState('CONNECTED');
+        } catch (err) {
+            console.error('❌ [Recovery] Recovery failed:', err);
+            setConnState('OFFLINE');
+        } finally {
+            recoveryMutex.current = false;
+        }
+    }, [user.token, triggerSync]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* Real-time Socket.IO Connection & Recovery handlers for Students */
     useEffect(() => {
         if (!quizStarted || !attemptId || submitting || result) return;
 
@@ -385,6 +433,11 @@ const QuizPage = () => {
             auth: {
                 token: user.token
             },
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 10000, // Maximum retry delay of 10s
+            randomizationFactor: 0.5,
             transports: ['websocket', 'polling']
         });
         studentSocketRef.current = socket;
@@ -395,6 +448,7 @@ const QuizPage = () => {
                 attemptId,
                 quizId: quiz?._id || quizCode
             });
+            runRecovery();
         });
 
         socket.on('attempt:join_confirmed', (data) => {
@@ -406,10 +460,26 @@ const QuizPage = () => {
             handleSubmit(true);
         });
 
-        socket.on('attempt:session-invalid', () => {
-            console.warn('⚠️ Session invalid!');
-            alert('Your session has been invalidated by the administrator or server.');
+        socket.on('attempt:session-invalid', (data) => {
+            console.warn('⚠️ Session invalid:', data?.reason);
+            alert(data?.reason || 'Your session has been invalidated because another tab or device took over.');
             navigate('/');
+        });
+
+        socket.on('reconnect_attempt', () => {
+            setConnState('RECONNECTING');
+        });
+
+        socket.on('connect_error', () => {
+            setConnState('OFFLINE');
+        });
+
+        socket.on('disconnect', (reason) => {
+            if (reason === 'io server disconnect') {
+                setConnState('OFFLINE');
+            } else {
+                setConnState('RECONNECTING');
+            }
         });
 
         socket.on('error', (err) => {
@@ -423,7 +493,25 @@ const QuizPage = () => {
             }
             studentSocketRef.current = null;
         };
-    }, [quizStarted, attemptId, submitting, result, quiz?._id, quizCode, user.token, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [quizStarted, attemptId, submitting, result, quiz?._id, quizCode, user.token, navigate, runRecovery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* Window Online/Offline Event Listeners */
+    useEffect(() => {
+        const handleOnline = () => {
+            console.log('🌐 Browser online: initiating recovery');
+            runRecovery();
+        };
+        const handleOffline = () => {
+            console.warn('🌐 Browser offline: saving answers locally');
+            setConnState('OFFLINE');
+        };
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [runRecovery]);
 
     /* Anti-cheat */
     useEffect(() => {
@@ -704,6 +792,35 @@ const QuizPage = () => {
                 {flagCount > 0 && (
                     <span className={`badge ${flagCount >= 2 ? 'badge-red' : 'badge-yellow'}`}>🚩 {flagCount}/3</span>
                 )}
+
+                {/* Connection Status Indicator */}
+                <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 12,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    transition: 'all 0.3s ease',
+                    background: 
+                        connState === 'CONNECTED' || connState === 'RECOVERED' ? 'rgba(48,209,88,0.1)' :
+                        connState === 'CONNECTING' || connState === 'RECONNECTING' ? 'rgba(255,159,10,0.1)' :
+                        'rgba(255,59,48,0.1)',
+                    color: 
+                        connState === 'CONNECTED' || connState === 'RECOVERED' ? '#248a3d' :
+                        connState === 'CONNECTING' || connState === 'RECONNECTING' ? '#b25e00' :
+                        '#cc2d23',
+                    border: '1px solid currentColor'
+                }}>
+                    {connState === 'CONNECTED' && <><span>🟢</span> Connected</>}
+                    {connState === 'RECOVERED' && <><span>🟢</span> Restored — syncing...</>}
+                    {connState === 'CONNECTING' && <><span>🟡</span> Connecting...</>}
+                    {connState === 'RECONNECTING' && <><span>🟠</span> Reconnecting...</>}
+                    {connState === 'OFFLINE' && <><span>🔴</span> Offline — saved locally</>}
+                    {connState === 'SUBMITTED' && <><span>🟢</span> Submitted</>}
+                    {connState === 'EXPIRED' && <><span>🔴</span> Expired</>}
+                </span>
 
                 {/* Timer */}
                 <div className={`timer ${timeLeft < 60 ? 'danger' : timeLeft < 300 ? 'warn' : ''}`}>

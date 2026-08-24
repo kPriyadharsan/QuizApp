@@ -108,6 +108,17 @@ export const initSocket = (httpServer) => {
                     });
                 }
 
+                // Evict any existing socket connections inside the attempt room (to handle session hijack/override)
+                const attemptRoom = `attempt:${attemptId}`;
+                const existingSockets = await io.in(attemptRoom).fetchSockets();
+                for (const s of existingSockets) {
+                    if (s.id !== socket.id) {
+                        s.emit('attempt:session-invalid', { reason: 'Another tab or device has taken over this attempt.' });
+                        s.leave(attemptRoom);
+                        s.disconnect(true);
+                    }
+                }
+
                 socket.activeAttemptId = attemptId;
                 socket.activeQuizId = quizId;
 

@@ -184,6 +184,28 @@ const QuizPage = () => {
         return () => clearInterval(t);
     }, [quizStarted, submitting, result, quizCode, quiz?._id, user.token]); // ✅ no timeLeft dep
 
+    /* Sync timer and state with server periodically */
+    useEffect(() => {
+        if (!quizStarted || submitting || result || !attemptId) return;
+
+        const syncState = async () => {
+            try {
+                const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/attempt/${attemptId}/state`, {
+                    headers: { Authorization: `Bearer ${user.token}` }
+                });
+                setTimeLeft(res.data.remainingSeconds);
+                if (res.data.status === 'EXPIRED') {
+                    handleSubmit(true);
+                }
+            } catch (err) {
+                console.error('Error syncing attempt state:', err);
+            }
+        };
+
+        const syncInterval = setInterval(syncState, 15000);
+        return () => clearInterval(syncInterval);
+    }, [quizStarted, submitting, result, attemptId, user.token]); // eslint-disable-line react-hooks/exhaustive-deps
+
     /* Anti-cheat */
     useEffect(() => {
         const onViz = async () => {

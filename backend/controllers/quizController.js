@@ -626,12 +626,22 @@ export const submitQuiz = async (req, res) => {
 
         const questions = quizCache.get(actualQuizIdStr).questions;
 
-        // 1. Find Attempt
+        // 1. Locate existing submission first to make this idempotent
+        const existingSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+        if (existingSub) {
+            return res.status(200).json({ 
+                message: 'Quiz submitted successfully. Results will be published later.', 
+                total: questions.length, 
+                submission: existingSub 
+            });
+        }
+
+        // 2. Find Attempt
         let attempt = null;
         if (attemptId) {
             attempt = await Attempt.findById(attemptId);
         } else {
-            attempt = await Attempt.findOne({ userId: req.user.id, quizId: quiz._id, status: 'IN_PROGRESS' });
+            attempt = await Attempt.findOne({ userId: req.user.id, quizId: quiz._id });
         }
 
         if (!attempt) {
@@ -642,7 +652,20 @@ export const submitQuiz = async (req, res) => {
             return res.status(403).json({ message: 'Invalid session ID for this attempt' });
         }
 
-        // Map answers array to object format if answers is an array (which frontend sends)
+        // Check if already finalized (to prevent double submissions)
+        if (attempt.status === 'SUBMITTED' || attempt.status === 'EXPIRED') {
+            const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+            if (finalSub) {
+                return res.status(200).json({ 
+                    message: 'Quiz submitted successfully. Results will be published later.', 
+                    total: questions.length, 
+                    submission: finalSub 
+                });
+            }
+            return res.status(400).json({ message: 'This attempt has already been finalized.' });
+        }
+
+        // 3. Map answers array to object format if answers is an array (which frontend sends)
         const answersMap = new Map();
         if (Array.isArray(answers)) {
             answers.forEach(ans => {
@@ -654,7 +677,46 @@ export const submitQuiz = async (req, res) => {
             });
         }
 
-        // Single DB hit ONLY on submission to get past attempts map
+        // 4. Final Server-Side Expiration Check
+        const now = new Date();
+        const expiresAtMs = new Date(attempt.expiresAt).getTime();
+        const isExpired = now.getTime() > expiresAtMs;
+
+        // Atomically transition the attempt state using findOneAndUpdate to guarantee only one request can process the finalization
+        const targetStatus = isExpired ? 'EXPIRED' : 'SUBMITTED';
+        
+        // Merge final answers into attempt update payload
+        const setPayload = {
+            status: targetStatus,
+            submittedAt: now,
+            flagCount: tabSwitches || attempt.flagCount || 0,
+            answeredCount: answersMap.size
+        };
+        for (const [qId, ans] of answersMap.entries()) {
+            setPayload[`answers.${qId}`] = ans;
+        }
+
+        const updatedAttempt = await Attempt.findOneAndUpdate(
+            { _id: attempt._id, status: 'IN_PROGRESS' },
+            { $set: setPayload },
+            { new: true }
+        );
+
+        if (!updatedAttempt) {
+            // A concurrent request won the race and updated status!
+            // Retrieve already finalized submission
+            const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+            if (finalSub) {
+                return res.status(200).json({ 
+                    message: 'Quiz submitted successfully. Results will be published later.', 
+                    total: questions.length, 
+                    submission: finalSub 
+                });
+            }
+            return res.status(400).json({ message: 'Attempt has already been finalized.' });
+        }
+
+        // 5. Evaluate score and create Submission
         const previousSubmissionsCount = await Submission.countDocuments({ userId: req.user.id, quizId: quiz._id });
 
         let score = 0;
@@ -670,27 +732,30 @@ export const submitQuiz = async (req, res) => {
             };
         });
 
-        // Update Attempt status
-        for (const [qId, ans] of answersMap.entries()) {
-            attempt.answers.set(qId, ans);
+        let submission;
+        try {
+            submission = await Submission.create({
+                userId: req.user.id,
+                quizId: quiz._id,
+                answers: evaluatedAnswers,
+                score,
+                isSuspicious: isSuspicious || isExpired || false,
+                tabSwitches: tabSwitches || 0,
+                fullscreenExits: 0,
+                attemptNumber: previousSubmissionsCount + 1
+            });
+        } catch (err) {
+            if (err.code === 11000) {
+                // Catch unique index collision and return existing submission (extremely safe/idempotent)
+                const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+                return res.status(200).json({ 
+                    message: 'Quiz submitted successfully. Results will be published later.', 
+                    total: questions.length, 
+                    submission: finalSub 
+                });
+            }
+            throw err;
         }
-        attempt.status = 'SUBMITTED';
-        attempt.submittedAt = new Date();
-        attempt.answeredCount = attempt.answers.size;
-        attempt.flagCount = tabSwitches || attempt.flagCount || 0;
-        await attempt.save();
-
-        // Create Submission (The ONLY MongoDB write)
-        const submission = await Submission.create({
-            userId: req.user.id,
-            quizId: quiz._id,
-            answers: evaluatedAnswers,
-            score,
-            isSuspicious: isSuspicious || false,
-            tabSwitches: tabSwitches || 0,
-            fullscreenExits: fullscreenExits || 0,
-            attemptNumber: previousSubmissionsCount + 1
-        });
 
         // Delete from RAM cache and compatible QuizState record
         if (activeQuizzes.has(actualQuizIdStr)) {
@@ -698,7 +763,7 @@ export const submitQuiz = async (req, res) => {
         }
         await QuizState.findOneAndDelete({ userId: req.user.id, quizId: quiz._id });
 
-        console.log(`✅ [Quiz] User ${userIdStr} submitted Quiz: ${actualQuizIdStr} | Score: ${score}/${questions.length}`);
+        console.log(`✅ [Quiz] User ${userIdStr} submitted Quiz: ${actualQuizIdStr} | Score: ${score}/${questions.length} | Status: ${targetStatus}`);
         res.status(201).json({ message: 'Quiz submitted successfully. Results will be published later.', total: questions.length, submission });
     } catch (error) {
         res.status(500).json({ message: 'Error submitting quiz', error: error.message });
@@ -840,5 +905,87 @@ export const reportFlag = async (req, res) => {
         res.json({ flagCount: attempt.flagCount });
     } catch (error) {
         res.status(500).json({ message: 'Error reporting flag', error: error.message });
+    }
+};
+
+export const getAttemptState = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const attempt = await Attempt.findById(attemptId);
+        if (!attempt) {
+            return res.status(404).json({ message: 'Attempt not found' });
+        }
+
+        if (attempt.userId.toString() !== req.user.id.toString()) {
+            return res.status(403).json({ message: 'Unauthorized access to this attempt' });
+        }
+
+        const quiz = await resolveQuiz(attempt.quizId);
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+
+        const actualQuizIdStr = quiz._id.toString();
+        const userIdStr = req.user.id.toString();
+        
+        const now = new Date();
+        const expiresAtMs = new Date(attempt.expiresAt).getTime();
+        const nowMs = now.getTime();
+        let remainingSeconds = Math.max(0, Math.floor((expiresAtMs - nowMs) / 1000));
+
+        // If expired and still in progress, auto-finalize safely
+        if (remainingSeconds <= 0 && attempt.status === 'IN_PROGRESS') {
+            attempt.status = 'EXPIRED';
+            attempt.submittedAt = now;
+            await attempt.save();
+
+            // Auto-submit: create a Submission atomically if it doesn't exist
+            const previousSubmission = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+            if (!previousSubmission) {
+                const questionsList = quizCache.get(actualQuizIdStr).questions;
+                const answersObj = attempt.answers ? Object.fromEntries(attempt.answers) : {};
+                let score = 0;
+                const evaluatedAnswers = Object.keys(answersObj).map(qId => {
+                    const question = questionsList.find(q => q._id.toString() === qId);
+                    const isCorrect = question && question.correctAnswer === answersObj[qId];
+                    if (isCorrect) score += 1;
+                    return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
+                });
+
+                await Submission.create({
+                    userId: req.user.id,
+                    quizId: quiz._id,
+                    answers: evaluatedAnswers,
+                    score,
+                    isSuspicious: true,
+                    tabSwitches: attempt.flagCount || 0,
+                    fullscreenExits: 0
+                });
+            }
+
+            // Clean memory cache & compatible QuizState
+            activeQuizzes.get(actualQuizIdStr)?.users.delete(userIdStr);
+            await QuizState.findOneAndDelete({ userId: req.user.id, quizId: quiz._id });
+            
+            remainingSeconds = 0;
+        }
+
+        res.json({
+            status: attempt.status,
+            serverTime: now,
+            startedAt: attempt.startedAt,
+            expiresAt: attempt.expiresAt,
+            remainingSeconds,
+            questionOrder: attempt.questionOrder,
+            answers: attempt.answers ? Object.fromEntries(attempt.answers) : {},
+            currentQuestionIndex: attempt.currentQuestionIndex,
+            answeredCount: attempt.answeredCount,
+            connectionStatus: attempt.connectionStatus,
+            ipAddress: attempt.ipAddress,
+            userAgent: attempt.userAgent
+        });
+    } catch (error) {
+        console.error('Error in getAttemptState:', error);
+        res.status(500).json({ message: 'Error fetching attempt state', error: error.message });
     }
 };

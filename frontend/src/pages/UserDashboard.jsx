@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, KeyRound, Clock, CalendarDays, Activity, Medal, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const UserDashboard = () => {
     const [quizzes, setQuizzes] = useState([]);

@@ -4,6 +4,11 @@ const keyGenerator = (req) => {
     return req.user?.id || req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
 };
 
+const skip = (req) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    return ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost') || process.env.NODE_ENV === 'test';
+};
+
 export const authLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
     max: 15,
@@ -11,7 +16,8 @@ export const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator,
-    validate: false
+    validate: false,
+    skip
 });
 
 export const quizStartLimiter = rateLimit({
@@ -21,7 +27,8 @@ export const quizStartLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator,
-    validate: false
+    validate: false,
+    skip
 });
 
 export const answerSyncLimiter = rateLimit({
@@ -31,7 +38,8 @@ export const answerSyncLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator,
-    validate: false
+    validate: false,
+    skip
 });
 
 export const submitLimiter = rateLimit({
@@ -41,7 +49,8 @@ export const submitLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator,
-    validate: false
+    validate: false,
+    skip
 });
 
 export const flagLimiter = rateLimit({
@@ -51,5 +60,6 @@ export const flagLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator,
-    validate: false
+    validate: false,
+    skip
 });

@@ -3,6 +3,7 @@ import Question from '../models/Question.js';
 import User from '../models/User.js';
 import Submission from '../models/Submission.js';
 import QuizState from '../models/QuizState.js';
+import Attempt from '../models/Attempt.js';
 import AppSettings from '../models/AppSettings.js';
 import { invalidateQuizCache } from './quizController.js';
 
@@ -133,9 +134,10 @@ export const deleteQuiz = async (req, res) => {
             return res.status(404).json({ message: 'Quiz not found' });
         }
 
-        // Delete all questions and submissions for this quiz
+        // Delete all questions, submissions, and attempts for this quiz
         await Question.deleteMany({ quizId });
         await Submission.deleteMany({ quizId });
+        await Attempt.deleteMany({ quizId });
         await Quiz.findByIdAndDelete(quizId);
 
         invalidateQuizCache(quizId);
@@ -241,8 +243,8 @@ export const getLiveAttendees = async (req, res) => {
         const submissions = await Submission.find({ quizId })
             .populate('userId', 'name email isBlocked');
 
-        // Get currently active quiz takers (have QuizState but haven't submitted yet)
-        const activeStates = await QuizState.find({ quizId })
+        // Get currently active quiz takers (have active Attempt but haven't submitted yet)
+        const activeStates = await Attempt.find({ quizId, status: 'IN_PROGRESS' })
             .populate('userId', 'name email isBlocked');
 
         const totalUsers = await User.countDocuments({ role: 'user' });

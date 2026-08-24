@@ -5,14 +5,20 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowRight } from 'lucide-react';
 
 /* ── Confetti ─────────────────────────────────────────── */
+const COLORS = ['#6c63ff','#a29bfe','#fd79a8','#fdcb6e','#00b894','#e17055','#74b9ff','#ff7675'];
 const Confetti = () => {
-    const COLORS = ['#6c63ff','#a29bfe','#fd79a8','#fdcb6e','#00b894','#e17055','#74b9ff','#ff7675'];
-    const pieces = Array.from({ length: 55 }, (_, i) => ({
-        id: i, left: Math.random() * 100,
-        delay: Math.random() * 2.5, duration: 2.4 + Math.random() * 2,
-        color: COLORS[i % COLORS.length], size: 7 + Math.random() * 8,
-        round: Math.random() > 0.5,
-    }));
+    const [pieces, setPieces] = useState([]);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setPieces(Array.from({ length: 55 }, (_, i) => ({
+                id: i, left: Math.random() * 100,
+                delay: Math.random() * 2.5, duration: 2.4 + Math.random() * 2,
+                color: COLORS[i % COLORS.length], size: 7 + Math.random() * 8,
+                round: Math.random() > 0.5,
+            })));
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
     return <>
         {pieces.map(p => (
             <div key={p.id} className="confetti" style={{
@@ -51,6 +57,24 @@ const QuizPage = () => {
     const [showConfetti, setShowConfetti] = useState(false);
     const [currentQ, setCurrentQ] = useState(0);
     const [isStarting, setIsStarting] = useState(false);
+
+    const [attemptId, setAttemptId] = useState(null);
+    const [sessionId, setSessionId] = useState(null);
+    const [startedAt, setStartedAt] = useState(null);
+    const [expiresAt, setExpiresAt] = useState(null);
+    const [questionOrder, setQuestionOrder] = useState([]);
+
+    const attemptIdRef = useRef(null);
+    const sessionIdRef = useRef(null);
+
+    useEffect(() => { attemptIdRef.current = attemptId; }, [attemptId]);
+    useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
+    useEffect(() => {
+        if (attemptId && sessionId) {
+            console.log(`Quiz attempt ${attemptId} loaded with session ${sessionId}. Started at: ${startedAt}, expires at: ${expiresAt}. Question count: ${questionOrder.length}`);
+        }
+    }, [attemptId, sessionId, startedAt, expiresAt, questionOrder]);
 
     const flagCountRef  = useRef(0);
     const quizStartedRef = useRef(false);
@@ -101,6 +125,11 @@ const QuizPage = () => {
                     setQuestions(res.data.questions);
                     setAnswers(res.data.savedState.answers || {});
                     setTimeLeft(res.data.savedState.timeRemaining);
+                    setAttemptId(res.data.attemptId);
+                    setSessionId(res.data.sessionId);
+                    setStartedAt(res.data.startedAt);
+                    setExpiresAt(res.data.expiresAt);
+                    setQuestionOrder(res.data.questionOrder);
                     setIsResuming(true);
                     setQuizStarted(true); // ✅ Activate flag listeners on resume
                 } else {
@@ -125,7 +154,7 @@ const QuizPage = () => {
             });
         }, 1000);
         return () => clearInterval(t);
-    }, [quizStarted, submitting, result]); // ✅ no timeLeft dep — interval is stable
+    }, [quizStarted, submitting, result]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* Auto-save every 25s-35s — reads timeLeft via ref so interval never resets */
     useEffect(() => {
@@ -139,12 +168,18 @@ const QuizPage = () => {
             try {
                 setIsSaving(true);
                 await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/save`,
-                    { quizId: quiz?._id || quizCode, answers: dirtyAnswersRef.current, timeRemaining: timeLeftRef.current },
+                    { 
+                        quizId: quiz?._id || quizCode, 
+                        attemptId: attemptIdRef.current,
+                        sessionId: sessionIdRef.current,
+                        answers: dirtyAnswersRef.current, 
+                        timeRemaining: timeLeftRef.current 
+                    },
                     { headers: { Authorization: `Bearer ${user.token}` } }
                 );
                 // Clear dirty tracker after successful save
                 setDirtyAnswers({});
-            } catch (err) { /* Silent fail for auto-save, keeps dirtyAnswers for next try */ } finally { setTimeout(() => setIsSaving(false), 600); }
+            } catch { /* Silent fail for auto-save, keeps dirtyAnswers for next try */ } finally { setTimeout(() => setIsSaving(false), 600); }
         }, randomDelay);
         return () => clearInterval(t);
     }, [quizStarted, submitting, result, quizCode, quiz?._id, user.token]); // ✅ no timeLeft dep
@@ -181,7 +216,7 @@ const QuizPage = () => {
             document.removeEventListener('fullscreenchange', onFS);
             document.removeEventListener('keydown', onKey);
         };
-    }, [reportFlag]);
+    }, [reportFlag]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const enterFullscreen = async () => {
         try { await document.documentElement.requestFullscreen(); setIsFullscreen(true); setWarningMsg(''); }
@@ -199,7 +234,12 @@ const QuizPage = () => {
             } else {
                 const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/start`, { quizId: quiz?._id || quizCode }, { headers: { Authorization: `Bearer ${user.token}` } });
                 setQuestions(res.data.questions);
-                setTimeLeft(res.data.quiz.duration * 60);
+                setTimeLeft(Math.max(0, Math.floor((new Date(res.data.expiresAt).getTime() - new Date(res.data.serverTime).getTime()) / 1000)));
+                setAttemptId(res.data.attemptId);
+                setSessionId(res.data.sessionId);
+                setStartedAt(res.data.startedAt);
+                setExpiresAt(res.data.expiresAt);
+                setQuestionOrder(res.data.questionOrder);
                 setQuizStarted(true);
             }
         } catch (err) {
@@ -229,7 +269,10 @@ const QuizPage = () => {
         const formatted = Object.keys(cur).map(qId => ({ questionId: qId, selectedOption: cur[qId] }));
         try {
             const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/submit`, {
-                quizId: quiz?._id || quizCode, answers: formatted,
+                quizId: quiz?._id || quizCode,
+                attemptId: attemptIdRef.current,
+                sessionId: sessionIdRef.current,
+                answers: formatted,
                 isSuspicious: flagCountRef.current > 0 || force,
                 tabSwitches: flagCountRef.current, fullscreenExits: 0,
             }, { headers: { Authorization: `Bearer ${user.token}` } });

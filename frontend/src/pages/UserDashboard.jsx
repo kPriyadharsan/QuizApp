@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
 import { ArrowRight, KeyRound, Clock, CalendarDays, Activity, Medal, CheckCircle2 } from 'lucide-react';
 
 const UserDashboard = () => {
@@ -50,7 +49,7 @@ const UserDashboard = () => {
                 color: 'var(--color-text-secondary)', 
                 active: false 
             };
-        } catch (e) {
+        } catch {
             return { text: d.toString(), color: 'var(--color-text-secondary)', active: false };
         }
     };

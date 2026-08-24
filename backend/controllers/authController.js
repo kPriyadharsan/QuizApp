@@ -19,10 +19,6 @@ export const registerUser = async (req, res) => {
             return res.status(403).json({ message: 'Registration is currently closed by the admin.' });
         }
 
-        if (email === 'dharsan@admin.com') {
-            return res.status(400).json({ message: 'Cannot register with admin email' });
-        }
-
         const userExists = await User.findOne({ email });
 
         if (userExists) {
@@ -59,17 +55,6 @@ export const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // Hardcoded admin login
-        if (email === 'dharsan@admin.com' && password === 'dharsan@quiz2763') {
-            return res.json({
-                _id: 'admin-id',
-                name: 'System Admin',
-                email: 'dharsan@admin.com',
-                role: 'admin',
-                token: generateToken('admin-id', 'admin'),
-            });
-        }
-
         const user = await User.findOne({ email });
 
         if (user && (await bcrypt.compare(password, user.password))) {
@@ -96,15 +81,6 @@ export const loginUser = async (req, res) => {
 // Verify user token and get current user info
 export const getMe = async (req, res) => {
     try {
-        if (req.user.id === 'admin-id') {
-            return res.json({
-                _id: 'admin-id',
-                name: 'System Admin',
-                email: 'dharsan@admin.com',
-                role: 'admin',
-            });
-        }
-        
         const user = await User.findById(req.user.id).select('-password');
         if (user) {
             if (user.isBlocked) {

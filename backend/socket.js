@@ -26,11 +26,9 @@ export const initSocket = (httpServer) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             
             // Validate user block status
-            if (decoded.id !== 'admin-id') {
-                const dbUser = await User.findById(decoded.id).select('isBlocked');
-                if (dbUser && dbUser.isBlocked) {
-                    return next(new Error('Authentication error: User is blocked'));
-                }
+            const dbUser = await User.findById(decoded.id).select('isBlocked');
+            if (dbUser && dbUser.isBlocked) {
+                return next(new Error('Authentication error: User is blocked'));
             }
 
             socket.user = {
@@ -52,13 +50,20 @@ export const initSocket = (httpServer) => {
             try {
                 if (!quizId) return socket.emit("error", { message: "Quiz ID required" });
                 if (socket.user.role !== 'admin') {
+                    console.warn(`🚨 [Security Alert] Non-admin User ${socket.user.userId} attempted to join admin room for Quiz ${quizId}`);
                     return socket.emit("error", { message: "Unauthorized: Admin access required" });
+                }
+
+                const quiz = await Quiz.findById(quizId);
+                if (!quiz) {
+                    return socket.emit("error", { message: "Quiz not found" });
                 }
 
                 const roomName = `admin:${quizId.toString()}`;
                 socket.join(roomName);
                 socket.activeAdminRoom = roomName;
                 socket.emit('admin:confirmed', { room: roomName });
+                console.log(`ℹ️ [Socket] Admin User ${socket.user.userId} joined room: ${roomName}`);
             } catch (err) {
                 socket.emit("error", { message: "Failed to join admin room", error: err.message });
             }

@@ -200,7 +200,14 @@ const QuizPage = () => {
 
     /* Load quiz info */
     useEffect(() => {
-        axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/info`, { quizId: quizCode }, { headers: { Authorization: `Bearer ${user.token}` } })
+        const localSessionStr = localStorage.getItem(`quiz_session_${quizCode}`);
+        const localSession = localSessionStr ? JSON.parse(localSessionStr) : null;
+        const sessionIdParam = localSession?.sessionId;
+
+        axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/info`, { 
+            quizId: quizCode,
+            sessionId: sessionIdParam
+        }, { headers: { Authorization: `Bearer ${user.token}` } })
             .then(res => {
                 setQuiz(res.data.quiz);
                 if (res.data.status === 'resuming' && res.data.savedState) {
@@ -214,6 +221,11 @@ const QuizPage = () => {
                     setQuestionOrder(res.data.questionOrder);
                     setIsResuming(true);
                     setQuizStarted(true); // ✅ Activate flag listeners on resume
+
+                    localStorage.setItem(`quiz_session_${quizCode}`, JSON.stringify({
+                        attemptId: res.data.attemptId,
+                        sessionId: res.data.sessionId
+                    }));
                 } else {
                     setTimeLeft(res.data.quiz.duration * 60);
                 }
@@ -281,7 +293,12 @@ const QuizPage = () => {
             try {
                 await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/attempt/${currentAttemptId}/answers`,
                     { answers: pendingAnswers },
-                    { headers: { Authorization: `Bearer ${user.token}` } }
+                    { 
+                        headers: { 
+                            Authorization: `Bearer ${user.token}`,
+                            'X-Session-ID': sessionIdRef.current
+                        } 
+                    }
                 );
 
                 // Success: mark them as synced in IndexedDB
@@ -364,7 +381,10 @@ const QuizPage = () => {
         const syncState = async () => {
             try {
                 const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/attempt/${attemptId}/state`, {
-                    headers: { Authorization: `Bearer ${user.token}` }
+                    headers: { 
+                        Authorization: `Bearer ${user.token}`,
+                        'X-Session-ID': sessionId
+                    }
                 });
                 setTimeLeft(res.data.remainingSeconds);
                 if (res.data.status === 'EXPIRED') {
@@ -388,7 +408,10 @@ const QuizPage = () => {
         try {
             console.log('🔄 [Recovery] Recovering session state from server...');
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/attempt/${attemptIdRef.current}/state`, {
-                headers: { Authorization: `Bearer ${user.token}` }
+                headers: { 
+                    Authorization: `Bearer ${user.token}`,
+                    'X-Session-ID': sessionIdRef.current 
+                }
             });
 
             if (res.data.status === 'EXPIRED') {
@@ -572,6 +595,11 @@ const QuizPage = () => {
                 setExpiresAt(res.data.expiresAt);
                 setQuestionOrder(res.data.questionOrder);
                 setQuizStarted(true);
+
+                localStorage.setItem(`quiz_session_${quizCode}`, JSON.stringify({
+                    attemptId: res.data.attemptId,
+                    sessionId: res.data.sessionId
+                }));
             }
         } catch (err) {
             const errMsg = err.response?.data?.message || err.message;
@@ -653,10 +681,11 @@ const QuizPage = () => {
                 tabSwitches: flagCountRef.current, fullscreenExits: 0,
             }, { headers: { Authorization: `Bearer ${user.token}` } });
             
-            // Clean up IndexedDB answers for this attempt upon successful submit
+            // Clean up IndexedDB answers and localStorage session details for this attempt upon successful submit
             if (dbRef.current && attemptIdRef.current) {
                 await deleteLocalAnswersForAttempt(dbRef.current, attemptIdRef.current).catch(() => {});
             }
+            localStorage.removeItem(`quiz_session_${quizCode}`);
 
             if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
             setResult(res.data); setShowConfetti(true);

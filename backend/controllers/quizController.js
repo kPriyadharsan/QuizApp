@@ -289,6 +289,16 @@ export const getQuizInfo = async (req, res) => {
                 return res.status(400).json({ message: 'Your attempt has ended.' });
             }
 
+            // Session validation: only allow resume if the client provides the correct sessionId
+            const clientSessionId = req.body.sessionId || req.headers['x-session-id'] || req.query.sessionId;
+            if (attempt.sessionId && attempt.sessionId !== clientSessionId) {
+                console.warn(`🚨 [Security Alert] Concurrent session resume rejected. User: ${userIdStr}, Attempt: ${attempt._id}. Expected: ${attempt.sessionId}, Provided: ${clientSessionId}`);
+                return res.status(403).json({
+                    message: 'Active exam session detected on another device/browser. Only one active session is allowed.',
+                    sessionConflict: true
+                });
+            }
+
             // Calculate remaining time relative to server-controlled expiresAt
             const nowMs = Date.now();
             const expiresAtMs = new Date(attempt.expiresAt).getTime();
@@ -668,20 +678,11 @@ export const submitQuiz = async (req, res) => {
             });
         }
 
-        // 2. Find Attempt
-        let attempt = null;
-        if (attemptId) {
-            attempt = await Attempt.findById(attemptId);
-        } else {
-            attempt = await Attempt.findOne({ userId: req.user.id, quizId: quiz._id });
-        }
+        // 2. Use pre-validated attempt from session middleware
+        const attempt = req.attempt;
 
-        if (!attempt) {
-            return res.status(404).json({ message: 'Active attempt not found' });
-        }
-
-        if (sessionId && attempt.sessionId !== sessionId) {
-            return res.status(403).json({ message: 'Invalid session ID for this attempt' });
+        if (isSuspicious) {
+            console.warn(`🚨 [Security Alert] Suspicious exam submission flagged! User: ${userIdStr}, Attempt: ${attempt._id}, Tab switches: ${tabSwitches}, Fullscreen exits: ${fullscreenExits} (IP: ${req.ip || ''})`);
         }
 
         // Check if already finalized (to prevent double submissions)
@@ -927,12 +928,7 @@ export const reportFlag = async (req, res) => {
         );
 
         // Get user details for the real-time broadcast (DB read ONLY for Admin, others hit cache optionally or just run DB once)
-        let user = null;
-        if (userIdStr !== 'admin-id') {
-            user = await User.findById(req.user.id).select('name email').lean();
-        } else {
-            user = { name: 'System Admin', email: 'dharsan@admin.com' };
-        }
+        const user = await User.findById(req.user.id).select('name email').lean();
 
         // Emit real-time flag event to admin via Socket.IO if live monitoring is enabled
         if (quiz.liveMonitoringEnabled) {
@@ -963,11 +959,7 @@ export const reportFlag = async (req, res) => {
 
 export const getAttemptState = async (req, res) => {
     try {
-        const { attemptId } = req.params;
-        const attempt = await Attempt.findById(attemptId);
-        if (!attempt) {
-            return res.status(404).json({ message: 'Attempt not found' });
-        }
+        const attempt = req.attempt;
 
         if (attempt.userId.toString() !== req.user.id.toString()) {
             return res.status(403).json({ message: 'Unauthorized access to this attempt' });
@@ -1061,20 +1053,11 @@ export const getAttemptState = async (req, res) => {
 
 export const syncAnswers = async (req, res) => {
     try {
-        const { attemptId } = req.params;
+        const attempt = req.attempt;
         const { answers } = req.body; // array of: { questionId, selectedOption, clientSequence, timestamp }
 
         if (!Array.isArray(answers) || answers.length === 0) {
             return res.status(400).json({ message: 'Invalid or empty answers array' });
-        }
-
-        const attempt = await Attempt.findById(attemptId);
-        if (!attempt) {
-            return res.status(404).json({ message: 'Attempt not found' });
-        }
-
-        if (attempt.userId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({ message: 'Unauthorized access to this attempt' });
         }
 
         if (attempt.status !== 'IN_PROGRESS') {

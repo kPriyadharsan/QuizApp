@@ -7,6 +7,8 @@ import { Server } from "socket.io";
 import helmet from "helmet";
 import compression from "compression";
 import morgan from "morgan";
+import User from "./models/User.js";
+import bcrypt from "bcryptjs";
 // Global Error Protection
 process.on("uncaughtException", (err) => {
     console.error("🔥 Uncaught Exception:", err);
@@ -35,8 +37,21 @@ import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import quizRoutes from "./routes/quizRoutes.js";
 
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+].filter(Boolean);
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+            return callback(null, true);
+        } else {
+            return callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
 }));
@@ -80,12 +95,35 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB before starting server
 mongoose
     .connect(process.env.MONGODB_URI, {
-        maxPoolSize: 50, // Increased for high concurrency (default is usually 100 on Node driver, but specifically setting 50)
+        maxPoolSize: 50, // Increased for high concurrency
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
     })
-    .then(() => {
+    .then(async () => {
         console.log("Connected to MongoDB");
+        
+        // Seed Admin user
+        try {
+            const adminEmail = process.env.ADMIN_EMAIL || "dharsan@admin.com";
+            const adminPassword = process.env.ADMIN_PASSWORD || "dharsan@quiz2763";
+            const adminName = process.env.ADMIN_NAME || "System Admin";
+
+            const adminExists = await User.findOne({ email: adminEmail });
+            if (!adminExists) {
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(adminPassword, salt);
+                await User.create({
+                    name: adminName,
+                    email: adminEmail,
+                    password: hashedPassword,
+                    role: "admin",
+                });
+                console.log("❇️ Admin user seeded successfully!");
+            }
+        } catch (e) {
+            console.error("❌ Error seeding admin user:", e);
+        }
+
         // Start server only after DB connects
         httpServer.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);

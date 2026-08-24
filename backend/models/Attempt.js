@@ -52,6 +52,14 @@ const attemptSchema = new mongoose.Schema({
         of: String, 
         default: {} 
     },
+    answerVersions: {
+        type: Map,
+        of: {
+            clientSequence: { type: Number, default: 0 },
+            timestamp: { type: Date }
+        },
+        default: {}
+    },
     answeredCount: { 
         type: Number, 
         default: 0 

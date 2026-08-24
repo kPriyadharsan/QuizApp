@@ -33,6 +33,84 @@ const Confetti = () => {
     </>;
 };
 
+/* ── IndexedDB Configuration ──────────────────────────── */
+const DB_NAME = 'QuizAppDB';
+const STORE_NAME = 'answers';
+
+const initDB = () => {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 2);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'questionId' });
+            }
+        };
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+const saveLocalAnswer = async (db, answer) => {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(answer);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+};
+
+const getLocalAnswers = async (db) => {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const deleteLocalAnswersForAttempt = async (db, attemptId) => {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => {
+            const items = request.result || [];
+            items.forEach(item => {
+                if (item.attemptId === attemptId) {
+                    store.delete(item.questionId);
+                }
+            });
+            resolve();
+        };
+        request.onerror = () => reject(request.error);
+    });
+};
+
+const syncLocalAnswersWithState = async (db, currentAttemptId, serverAnswers) => {
+    try {
+        const local = await getLocalAnswers(db);
+        const mergedAnswers = { ...serverAnswers };
+        let localAnswersToSync = [];
+
+        local.forEach(item => {
+            if (item.attemptId === currentAttemptId) {
+                mergedAnswers[item.questionId] = item.selectedOption;
+                if (item.syncStatus !== 'synced') {
+                    localAnswersToSync.push(item);
+                }
+            }
+        });
+
+        return { mergedAnswers, localAnswersToSync };
+    } catch (err) {
+        console.error('Failed to merge local IndexedDB answers', err);
+        return { mergedAnswers: serverAnswers, localAnswersToSync: [] };
+    }
+};
+
 /* ── Main Component ───────────────────────────────────── */
 const QuizPage = () => {
     const { quizCode } = useParams();
@@ -51,12 +129,13 @@ const QuizPage = () => {
     const [flagCount, setFlagCount] = useState(0);
     const [warningMsg, setWarningMsg] = useState('');
     const [isResuming, setIsResuming] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [dirtyAnswers, setDirtyAnswers] = useState({});
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showConfetti, setShowConfetti] = useState(false);
     const [currentQ, setCurrentQ] = useState(0);
     const [isStarting, setIsStarting] = useState(false);
+
+    const [syncStatus, setSyncStatus] = useState('synced');
+    const dbRef = useRef(null);
 
     const [attemptId, setAttemptId] = useState(null);
     const [sessionId, setSessionId] = useState(null);
@@ -79,13 +158,12 @@ const QuizPage = () => {
     const flagCountRef  = useRef(0);
     const quizStartedRef = useRef(false);
     const answersRef    = useRef({});
-    const dirtyAnswersRef = useRef({});
     const submittingRef = useRef(false);
     const resultRef     = useRef(null);
     const warningTimer  = useRef(null);
+    const isSyncingRef  = useRef(false);
 
     useEffect(() => { answersRef.current    = answers;    }, [answers]);
-    useEffect(() => { dirtyAnswersRef.current = dirtyAnswers; }, [dirtyAnswers]);
     useEffect(() => { quizStartedRef.current = quizStarted; }, [quizStarted]);
     useEffect(() => { submittingRef.current  = submitting;  }, [submitting]);
     useEffect(() => { resultRef.current      = result;      }, [result]);
@@ -156,33 +234,124 @@ const QuizPage = () => {
         return () => clearInterval(t);
     }, [quizStarted, submitting, result]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    /* Auto-save every 25s-35s — reads timeLeft via ref so interval never resets */
+    /* Initialize IndexedDB on mount */
     useEffect(() => {
-        if (!quizStarted || submitting || result) return;
-        
-        // Spread saves between 25s–35s to prevent burst writes
-        const randomDelay = 25000 + Math.random() * 10000;
-        
-        const t = setInterval(async () => {
-            if (Object.keys(dirtyAnswersRef.current).length === 0) return; // Nothing changed, skip save
+        const init = async () => {
             try {
-                setIsSaving(true);
-                await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/save`,
-                    { 
-                        quizId: quiz?._id || quizCode, 
-                        attemptId: attemptIdRef.current,
-                        sessionId: sessionIdRef.current,
-                        answers: dirtyAnswersRef.current, 
-                        timeRemaining: timeLeftRef.current 
-                    },
+                const db = await initDB();
+                dbRef.current = db;
+            } catch (err) {
+                console.error('Failed to init IndexedDB', err);
+            }
+        };
+        init();
+    }, []);
+
+    /* Synchronization trigger function */
+    const triggerSync = useCallback(async () => {
+        if (isSyncingRef.current || !dbRef.current || !attemptIdRef.current) return;
+        isSyncingRef.current = true;
+        setSyncStatus('syncing');
+
+        try {
+            const local = await getLocalAnswers(dbRef.current);
+            const currentAttemptId = attemptIdRef.current;
+            const pendingAnswers = local.filter(item => 
+                item.attemptId === currentAttemptId && 
+                (item.syncStatus === 'pending' || item.syncStatus === 'failed')
+            );
+
+            if (pendingAnswers.length === 0) {
+                setSyncStatus('synced');
+                isSyncingRef.current = false;
+                return;
+            }
+
+            // Mark them as syncing locally first
+            for (const item of pendingAnswers) {
+                item.syncStatus = 'syncing';
+                await saveLocalAnswer(dbRef.current, item);
+            }
+
+            // Send sync API call (only changed answers/deltas!)
+            try {
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/attempt/${currentAttemptId}/answers`,
+                    { answers: pendingAnswers },
                     { headers: { Authorization: `Bearer ${user.token}` } }
                 );
-                // Clear dirty tracker after successful save
-                setDirtyAnswers({});
-            } catch { /* Silent fail for auto-save, keeps dirtyAnswers for next try */ } finally { setTimeout(() => setIsSaving(false), 600); }
-        }, randomDelay);
-        return () => clearInterval(t);
-    }, [quizStarted, submitting, result, quizCode, quiz?._id, user.token]); // ✅ no timeLeft dep
+
+                // Success: mark them as synced in IndexedDB
+                for (const item of pendingAnswers) {
+                    item.syncStatus = 'synced';
+                    await saveLocalAnswer(dbRef.current, item);
+                }
+                setSyncStatus('synced');
+            } catch (err) {
+                console.error('Sync request failed, marking answers as failed', err);
+                // Failure: mark them as failed in IndexedDB so they will retry
+                for (const item of pendingAnswers) {
+                    item.syncStatus = 'failed';
+                    await saveLocalAnswer(dbRef.current, item);
+                }
+                setSyncStatus('failed');
+            }
+        } catch (err) {
+            console.error('Error during synchronization:', err);
+            setSyncStatus('failed');
+        } finally {
+            isSyncingRef.current = false;
+            // Check if any new pending answers were added while syncing
+            if (dbRef.current) {
+                const local = await getLocalAnswers(dbRef.current).catch(() => []);
+                const hasMorePending = local.some(item => 
+                    item.attemptId === attemptIdRef.current && 
+                    (item.syncStatus === 'pending' || item.syncStatus === 'failed')
+                );
+                if (hasMorePending) {
+                    setTimeout(triggerSync, 1000);
+                }
+            }
+        }
+    }, [user.token]);
+
+    /* Load and merge local IndexedDB answers once DB and attemptId are ready */
+    useEffect(() => {
+        if (!attemptId || !dbRef.current) return;
+        
+        const mergeLocal = async () => {
+            try {
+                const { mergedAnswers, localAnswersToSync } = await syncLocalAnswersWithState(dbRef.current, attemptId, answersRef.current);
+                setAnswers(mergedAnswers);
+                if (localAnswersToSync.length > 0) {
+                    setSyncStatus('pending');
+                    triggerSync();
+                }
+            } catch (err) {
+                console.error('Error merging local answers:', err);
+            }
+        };
+        
+        mergeLocal();
+    }, [attemptId, triggerSync]);
+
+    /* Re-sync when browser detects network is online again */
+    useEffect(() => {
+        const handleOnline = () => {
+            console.log('Browser online: triggering synchronization');
+            triggerSync();
+        };
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [triggerSync]);
+
+    /* Periodic sync interval to catch any failed answers */
+    useEffect(() => {
+        if (!quizStarted || submitting || result) return;
+        const interval = setInterval(() => {
+            triggerSync();
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [quizStarted, submitting, result, triggerSync]);
 
     /* Sync timer and state with server periodically */
     useEffect(() => {
@@ -278,15 +447,57 @@ const QuizPage = () => {
         }
     };
 
-    const handleOptionSelect = (questionId, option) => {
+    const handleOptionSelect = async (questionId, option) => {
+        // 1. Update UI immediately
         const newAnswers = { ...answers, [questionId]: option };
         setAnswers(newAnswers);
-        setDirtyAnswers(prev => ({ ...prev, [questionId]: option }));
+
+        // 2. Persist to local IndexedDB storage immediately and mark as pending
+        if (dbRef.current && attemptIdRef.current) {
+            const answerRecord = {
+                attemptId: attemptIdRef.current,
+                questionId,
+                selectedOption: option,
+                clientSequence: Date.now(),
+                timestamp: new Date().toISOString(),
+                syncStatus: 'pending'
+            };
+            try {
+                await saveLocalAnswer(dbRef.current, answerRecord);
+                setSyncStatus('pending');
+                // Trigger immediate synchronization
+                triggerSync();
+            } catch (err) {
+                console.error('Failed to save answer to IndexedDB', err);
+            }
+        }
     };
 
     const handleSubmit = async (force = false) => {
         if (submittingRef.current) return;
         setSubmitting(true);
+
+        // Before submitting: perform a final synchronization of any pending answers!
+        if (dbRef.current && attemptIdRef.current) {
+            try {
+                setSyncStatus('syncing');
+                await triggerSync();
+                // Check if any answers remain unsynced
+                const local = await getLocalAnswers(dbRef.current);
+                const currentAttemptId = attemptIdRef.current;
+                const unsynced = local.filter(item => 
+                    item.attemptId === currentAttemptId && 
+                    item.syncStatus !== 'synced'
+                );
+                if (unsynced.length > 0 && !force) {
+                    // Try one more time to sync them
+                    await triggerSync();
+                }
+            } catch (err) {
+                console.error('Final sync verification failed', err);
+            }
+        }
+
         const cur = force ? answersRef.current : answers;
         const formatted = Object.keys(cur).map(qId => ({ questionId: qId, selectedOption: cur[qId] }));
         try {
@@ -298,6 +509,12 @@ const QuizPage = () => {
                 isSuspicious: flagCountRef.current > 0 || force,
                 tabSwitches: flagCountRef.current, fullscreenExits: 0,
             }, { headers: { Authorization: `Bearer ${user.token}` } });
+            
+            // Clean up IndexedDB answers for this attempt upon successful submit
+            if (dbRef.current && attemptIdRef.current) {
+                await deleteLocalAnswersForAttempt(dbRef.current, attemptIdRef.current).catch(() => {});
+            }
+
             if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
             setResult(res.data); setShowConfetti(true);
             setTimeout(() => setShowConfetti(false), 4500);
@@ -367,7 +584,7 @@ const QuizPage = () => {
                         <li>Do <strong>not</strong> switch tabs or minimize window</li>
                         <li><strong>3 flags = automatic submission</strong></li>
                         <li>Your activity is monitored in real-time</li>
-                        <li>Answers auto-save every 30 seconds</li>
+                        <li>Answers auto-save instantly (offline-ready)</li>
                     </ul>
                 </div>
                 <button className="btn btn-primary btn-full" style={{ padding: 15, fontSize: 16 }} onClick={handleStartQuiz} disabled={isStarting}>
@@ -424,7 +641,10 @@ const QuizPage = () => {
                 <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
                         <span>{answered}/{questions.length} answered</span>
-                        {isSaving && <span style={{ color: 'var(--color-success)' }}>✓ Saving</span>}
+                        {syncStatus === 'syncing' && <span style={{ color: 'var(--color-warning)' }}>🔄 Syncing...</span>}
+                        {syncStatus === 'synced' && <span style={{ color: 'var(--color-success)' }}>✓ Synced</span>}
+                        {syncStatus === 'pending' && <span style={{ color: 'var(--color-warning)' }}>⌛ Pending Sync</span>}
+                        {syncStatus === 'failed' && <span style={{ color: 'var(--color-danger)' }}>⚠ Sync Failed (Retrying)</span>}
                     </div>
                     <div style={{ height: 4, background: '#eee', borderRadius: 100, overflow: 'hidden' }}>
                         <div style={{ height: '100%', borderRadius: 100, background: 'linear-gradient(90deg,#6c63ff,#a29bfe)', width: `${progress}%`, transition: 'width 0.5s ease' }} />

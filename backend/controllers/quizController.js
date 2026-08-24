@@ -989,3 +989,134 @@ export const getAttemptState = async (req, res) => {
         res.status(500).json({ message: 'Error fetching attempt state', error: error.message });
     }
 };
+
+export const syncAnswers = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const { answers } = req.body; // array of: { questionId, selectedOption, clientSequence, timestamp }
+
+        if (!Array.isArray(answers) || answers.length === 0) {
+            return res.status(400).json({ message: 'Invalid or empty answers array' });
+        }
+
+        const attempt = await Attempt.findById(attemptId);
+        if (!attempt) {
+            return res.status(404).json({ message: 'Attempt not found' });
+        }
+
+        if (attempt.userId.toString() !== req.user.id.toString()) {
+            return res.status(403).json({ message: 'Unauthorized access to this attempt' });
+        }
+
+        if (attempt.status !== 'IN_PROGRESS') {
+            return res.status(400).json({ message: `Attempt is already ${attempt.status.toLowerCase()}` });
+        }
+
+        // Verify expiration
+        const now = new Date();
+        if (now.getTime() > new Date(attempt.expiresAt).getTime()) {
+            // Auto-submit expired attempt
+            attempt.status = 'EXPIRED';
+            attempt.submittedAt = now;
+            await attempt.save();
+
+            const actualQuizIdStr = attempt.quizId.toString();
+            const userIdStr = req.user.id.toString();
+            const questionsList = quizCache.get(actualQuizIdStr).questions;
+            const answersObj = attempt.answers ? Object.fromEntries(attempt.answers) : {};
+            let score = 0;
+            const evaluatedAnswers = Object.keys(answersObj).map(qId => {
+                const question = questionsList.find(q => q._id.toString() === qId);
+                const isCorrect = question && question.correctAnswer === answersObj[qId];
+                if (isCorrect) score += 1;
+                return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
+            });
+
+            await Submission.create({
+                userId: req.user.id,
+                quizId: attempt.quizId,
+                answers: evaluatedAnswers,
+                score,
+                isSuspicious: true,
+                tabSwitches: attempt.flagCount || 0,
+                fullscreenExits: 0
+            });
+
+            // Clear from memory cache & legacy QuizState
+            activeQuizzes.get(actualQuizIdStr)?.users.delete(userIdStr);
+            await QuizState.findOneAndDelete({ userId: req.user.id, quizId: attempt.quizId });
+
+            return res.status(403).json({ message: 'Your quiz time has expired. It has been automatically submitted.' });
+        }
+
+        // Process answer updates with idempotency and validation checks
+        let hasChanges = false;
+        const validQuestionIds = new Set(attempt.questionOrder.map(qo => qo.questionId.toString()));
+
+        for (const item of answers) {
+            const { questionId, selectedOption, clientSequence, timestamp } = item;
+
+            // Validate that the question belongs to this attempt/quiz
+            if (!validQuestionIds.has(questionId.toString())) {
+                continue; // skip invalid questions
+            }
+
+            // Check if we already have a newer or same version of the answer stored
+            const currentVer = attempt.answerVersions ? attempt.answerVersions.get(questionId.toString()) : null;
+            if (currentVer && currentVer.clientSequence >= clientSequence) {
+                continue; // ignore outdated answer (idempotency check)
+            }
+
+            // Apply updates
+            attempt.answers.set(questionId.toString(), selectedOption);
+            if (!attempt.answerVersions) attempt.answerVersions = new Map();
+            attempt.answerVersions.set(questionId.toString(), {
+                clientSequence,
+                timestamp: new Date(timestamp)
+            });
+            hasChanges = true;
+        }
+
+        if (hasChanges) {
+            attempt.answeredCount = attempt.answers.size;
+            attempt.lastSeenAt = now;
+            attempt.connectionStatus = 'CONNECTED';
+            await attempt.save();
+
+            // Sync with RAM cache and legacy QuizState queue
+            const actualQuizIdStr = attempt.quizId.toString();
+            const userIdStr = req.user.id.toString();
+            let userState = await getUserState(actualQuizIdStr, userIdStr);
+            const answersObj = Object.fromEntries(attempt.answers);
+            const calculatedTimeRemaining = Math.max(0, Math.floor((new Date(attempt.expiresAt).getTime() - now.getTime()) / 1000));
+            
+            if (userState) {
+                userState.answers = { ...userState.answers, ...answersObj };
+                userState.timeRemaining = calculatedTimeRemaining;
+                userState.lastSavedAt = now;
+            } else {
+                userState = {
+                    answers: answersObj,
+                    timeRemaining: calculatedTimeRemaining,
+                    lastSavedAt: now,
+                    startedAt: attempt.startedAt,
+                    flagCount: attempt.flagCount || 0,
+                    flagEvents: attempt.flagEvents || []
+                };
+                activeQuizzes.get(actualQuizIdStr).users.set(userIdStr, userState);
+            }
+
+            // Add to legacy saveQueue to write to QuizState
+            const queueKey = `${userIdStr}:${actualQuizIdStr}`;
+            saveQueue.set(queueKey, {
+                answers: answersObj,
+                timeRemaining: calculatedTimeRemaining
+            });
+        }
+
+        res.json({ success: true, message: 'Answers synchronized successfully', answeredCount: attempt.answers.size });
+    } catch (error) {
+        console.error('Error in syncAnswers:', error);
+        res.status(500).json({ message: 'Error synchronizing answers', error: error.message });
+    }
+};

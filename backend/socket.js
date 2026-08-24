@@ -1,5 +1,7 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { getPubClient, getSubClient, isRedisEnabled } from './redis.js';
 import Attempt from './models/Attempt.js';
 import User from './models/User.js';
 import Quiz from './models/Quiz.js';
@@ -14,6 +16,15 @@ export const initSocket = (httpServer) => {
             credentials: true
         }
     });
+
+    if (isRedisEnabled()) {
+        const pubClient = getPubClient();
+        const subClient = getSubClient();
+        io.adapter(createAdapter(pubClient, subClient));
+        console.log('🟢 [Socket.IO] Configured Redis Adapter successfully');
+    } else {
+        console.warn('⚠️ [Socket.IO] Redis is disabled. Socket.IO is operating in Standalone Mode.');
+    }
 
     // Authentication middleware: validates JWT token on handshake
     io.use(async (socket, next) => {

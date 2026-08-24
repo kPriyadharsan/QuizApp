@@ -20,8 +20,12 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 import { initSocket } from "./socket.js";
+import { initRedis } from "./redis.js";
 
 dotenv.config();
+
+// Initialize Redis if REDIS_URL is provided
+await initRedis();
 
 const app = express();
 app.set("trust proxy", 1);
@@ -94,7 +98,7 @@ const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB before starting server
 mongoose
-    .connect(process.env.MONGODB_URI, {
+    .connect(process.env.MONGO_URI || process.env.MONGODB_URI, {
         maxPoolSize: 50, // Increased for high concurrency
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
@@ -159,6 +163,21 @@ const gracefulShutdown = async (signal) => {
         io.close(() => {
             console.log('Socket.IO connections closed.');
         });
+    }
+
+    // Close Redis connections if active
+    const { getRedisClient, getPubClient, getSubClient, isRedisEnabled } = await import('./redis.js');
+    if (isRedisEnabled()) {
+        try {
+            await Promise.all([
+                getRedisClient()?.disconnect(),
+                getPubClient()?.disconnect(),
+                getSubClient()?.disconnect()
+            ].filter(Boolean));
+            console.log('Redis connections closed.');
+        } catch (err) {
+            console.error('Error closing Redis connections:', err.message);
+        }
     }
 
     // Close MongoDB connection

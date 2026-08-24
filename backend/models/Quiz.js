@@ -7,7 +7,8 @@ const quizSchema = new mongoose.Schema({
     startTime: { type: Date, required: true },
     isActive: { type: Boolean, default: true },
     resultsPublished: { type: Boolean, default: false },
-    leaderboardPublished: { type: Boolean, default: false }
+    leaderboardPublished: { type: Boolean, default: false },
+    liveMonitoringEnabled: { type: Boolean, default: false }
 }, { timestamps: true });
 
 export default mongoose.model('Quiz', quizSchema);

@@ -1,5 +1,5 @@
 import express from 'express';
-import { createQuiz, addQuestion, getQuestions, updateQuestion, deleteQuestion, getResults, getUsers, toggleResults, toggleLeaderboard, stopQuiz, deleteQuiz, blockUser, unblockUser, getLiveAttendees, getAllQuizzes, toggleRegistration, getAppSettings } from '../controllers/adminController.js';
+import { createQuiz, addQuestion, getQuestions, updateQuestion, deleteQuestion, getResults, getUsers, toggleResults, toggleLeaderboard, stopQuiz, deleteQuiz, blockUser, unblockUser, getLiveAttendees, getAllQuizzes, toggleRegistration, getAppSettings, toggleLiveMonitoring, forceSubmitAttempt, invalidateAttemptSession } from '../controllers/adminController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -21,5 +21,9 @@ router.post('/unblock-user', protect, admin, unblockUser);
 router.get('/live-attendees/:quizId', protect, admin, getLiveAttendees);
 router.post('/toggle-registration', protect, admin, toggleRegistration);
 router.get('/settings', getAppSettings);
+
+router.post('/toggle-monitoring', protect, admin, toggleLiveMonitoring);
+router.post('/attempt/:attemptId/force-submit', protect, admin, forceSubmitAttempt);
+router.post('/attempt/:attemptId/invalidate', protect, admin, invalidateAttemptSession);
 
 export default router;

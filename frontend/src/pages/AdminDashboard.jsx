@@ -86,6 +86,9 @@ const AdminDashboard = () => {
     const [users, setUsers] = useState([]);
     const [attendees, setAttendees] = useState(null);
     const [selectedQuizForAttendees, setSelectedQuizForAttendees] = useState(null);
+    const [filter, setFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedAttendee, setSelectedAttendee] = useState(null);
     const [registrationOpen, setRegistrationOpen] = useState(true);
     const [flagAlerts, setFlagAlerts] = useState([]);
     const [socketConnected, setSocketConnected] = useState(false);
@@ -95,6 +98,7 @@ const AdminDashboard = () => {
     const [quizCode, setQuizCode] = useState('');
     const [duration, setDuration] = useState(30);
     const [startTime, setStartTime] = useState(toLocalInputValue(new Date()));
+    const [liveMonitoringEnabled, setLiveMonitoringEnabled] = useState(false);
 
     const [selectedQuizId, setSelectedQuizId] = useState('');
     const [questionsList, setQuestionsList] = useState([]);
@@ -110,6 +114,59 @@ const AdminDashboard = () => {
     const fileInputRef = useRef(null);
     const formPanelRef = useRef(null);
     const questionListRef = useRef(null);
+
+    const getStats = () => {
+        if (!attendees || !attendees.attendees) return { total: 0, connected: 0, reconnecting: 0, offline: 0, submitted: 0, expired: 0, suspicious: 0 };
+        let total = attendees.attendees.length;
+        let connected = 0;
+        let reconnecting = 0;
+        let offline = 0;
+        let submitted = 0;
+        let expired = 0;
+        let suspicious = 0;
+
+        attendees.attendees.forEach(a => {
+            if (a.status === 'submitted') {
+                submitted++;
+            } else if (a.status === 'expired') {
+                expired++;
+            }
+            
+            if (a.status !== 'submitted') {
+                if (a.connectionStatus === 'CONNECTED') connected++;
+                else if (a.connectionStatus === 'RECONNECTING') reconnecting++;
+                else offline++;
+            }
+
+            if (a.isSuspicious || a.flagCount >= 3) {
+                suspicious++;
+            }
+        });
+
+        return { total, connected, reconnecting, offline, submitted, expired, suspicious };
+    };
+
+    const stats = getStats();
+
+    const filteredAttendees = attendees?.attendees?.filter(a => {
+        const nameMatch = a.name?.toLowerCase().includes(searchQuery.toLowerCase());
+        const emailMatch = a.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        if (searchQuery && !nameMatch && !emailMatch) return false;
+
+        if (filter === 'active') {
+            return a.status === 'in_progress' && (a.connectionStatus === 'CONNECTED' || a.connectionStatus === 'RECONNECTING');
+        }
+        if (filter === 'offline') {
+            return a.status === 'in_progress' && a.connectionStatus === 'DISCONNECTED';
+        }
+        if (filter === 'submitted') {
+            return a.status === 'submitted';
+        }
+        if (filter === 'suspicious') {
+            return a.isSuspicious || a.flagCount >= 3;
+        }
+        return true;
+    }) || [];
 
     useEffect(() => {
         fetchQuizzes();
@@ -174,6 +231,53 @@ const AdminDashboard = () => {
             setSocketConnected(false);
         });
         
+        socket.on('monitor:participant', (data) => {
+            console.log('📡 LIVE PARTICIPANT UPDATE RECEIVED:', data);
+            setAttendees(prev => {
+                if (!prev) return prev;
+                const uid = data.userId?.toString();
+                let found = false;
+                const updatedAttendees = prev.attendees.map(a => {
+                    const aid = a._id?.toString();
+                    if (aid === uid) {
+                        found = true;
+                        return {
+                            ...a,
+                            ...(data.status ? { status: data.status.toLowerCase() } : {}),
+                            ...(data.connectionStatus ? { connectionStatus: data.connectionStatus } : {}),
+                            ...(data.currentQuestionIndex !== undefined ? { currentQuestionIndex: data.currentQuestionIndex } : {}),
+                            ...(data.answeredCount !== undefined ? { answeredCount: data.answeredCount } : {}),
+                            ...(data.remainingSeconds !== undefined ? { remainingSeconds: data.remainingSeconds } : {}),
+                            ...(data.lastSeenAt ? { lastSeenAt: data.lastSeenAt } : {}),
+                            ...(data.attemptId ? { attemptId: data.attemptId } : {}),
+                            _lastUpdate: Date.now()
+                        };
+                    }
+                    return a;
+                });
+
+                if (!found && data.userName) {
+                    updatedAttendees.push({
+                        _id: data.userId,
+                        name: data.userName,
+                        email: data.userEmail,
+                        status: data.status?.toLowerCase() || 'in_progress',
+                        connectionStatus: data.connectionStatus || 'CONNECTED',
+                        currentQuestionIndex: data.currentQuestionIndex || 0,
+                        answeredCount: data.answeredCount || 0,
+                        remainingSeconds: data.remainingSeconds || 0,
+                        startedAt: data.startedAt || new Date(),
+                        lastSeenAt: data.lastSeenAt || new Date(),
+                        flagCount: data.flagCount || 0,
+                        flagEvents: data.flagEvents || [],
+                        attemptId: data.attemptId
+                    });
+                }
+
+                return { ...prev, attendees: updatedAttendees };
+            });
+        });
+
         socket.on('monitor:flag', (data) => {
             console.log('🚩 LIVE SECURITY ALERT RECEIVED:', data);
             
@@ -263,6 +367,37 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleToggleMonitoring = async (quizId) => {
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-monitoring`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } });
+            fetchQuizzes();
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error toggling live monitoring');
+        }
+    };
+
+    const handleForceSubmit = async (attemptId) => {
+        if (!window.confirm('Are you sure you want to force submit this candidate\'s attempt?')) return;
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/attempt/${attemptId}/force-submit`, {}, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Attempt force-submitted successfully.');
+            if (selectedQuizForAttendees) fetchLiveAttendees(selectedQuizForAttendees);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error forcing submission');
+        }
+    };
+
+    const handleInvalidateSession = async (attemptId) => {
+        if (!window.confirm('Are you sure you want to invalidate this candidate\'s session? This will force kick them from the exam.')) return;
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/attempt/${attemptId}/invalidate`, {}, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Candidate session invalidated.');
+            if (selectedQuizForAttendees) fetchLiveAttendees(selectedQuizForAttendees);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error invalidating session');
+        }
+    };
+
     const handleToggleResults = async (quizId) => {
         await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-results`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
         setOpenDropdownId(null); fetchQuizzes();
@@ -294,7 +429,23 @@ const AdminDashboard = () => {
         e.preventDefault();
         // Convert the datetime-local value (local time) → UTC ISO string before sending
         const startTimeUTC = new Date(startTime).toISOString();
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/create-quiz`, { title, quizCode, duration, startTime: startTimeUTC }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => { alert(e.response?.data?.message || 'Error'); return null; }).then(res => { if (res) { setTitle(''); setQuizCode(''); setDuration(30); setStartTime(toLocalInputValue(new Date())); fetchQuizzes(); } });
+        await axios.post(
+            `${import.meta.env.VITE_API_URL}/api/admin/create-quiz`, 
+            { title, quizCode, duration, startTime: startTimeUTC, liveMonitoringEnabled }, 
+            { headers: { Authorization: `Bearer ${user.token}` } }
+        ).catch(e => { 
+            alert(e.response?.data?.message || 'Error'); 
+            return null; 
+        }).then(res => { 
+            if (res) { 
+                setTitle(''); 
+                setQuizCode(''); 
+                setDuration(30); 
+                setStartTime(toLocalInputValue(new Date())); 
+                setLiveMonitoringEnabled(false);
+                fetchQuizzes(); 
+            } 
+        });
     };
     const fetchQuestions = async (quizId) => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/questions/${quizId}`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
@@ -464,6 +615,18 @@ const AdminDashboard = () => {
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <NeuInput label="Start Time" type="datetime-local" required value={startTime} onChange={e => setStartTime(e.target.value)} />
                                 </div>
+                                <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="liveMonitoringEnabled" 
+                                        checked={liveMonitoringEnabled} 
+                                        onChange={e => setLiveMonitoringEnabled(e.target.checked)} 
+                                        style={{ width: 18, height: 18, cursor: 'pointer' }}
+                                    />
+                                    <label htmlFor="liveMonitoringEnabled" style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
+                                        Enable Real-time Monitoring & Anti-cheat Banners
+                                    </label>
+                                </div>
                                 <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
                                     <NeuButton type="submit" variant="primary">Create Quiz →</NeuButton>
                                 </div>
@@ -494,6 +657,7 @@ const AdminDashboard = () => {
                                                     </span>
                                                     {quiz.resultsPublished && <span className="badge badge-info" style={{ fontSize: 11 }}>Results ✓</span>}
                                                     {quiz.leaderboardPublished && <span className="badge badge-success" style={{ fontSize: 11 }}>Board ✓</span>}
+                                                    {quiz.liveMonitoringEnabled && <span className="badge badge-warning" style={{ fontSize: 11, background: 'rgba(255,159,10,0.12)', color: '#b25e00' }}>📡 Monitoring Enabled</span>}
                                                 </div>
                                                 <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
                                                     <span>🕐 {quiz.duration} min</span>
@@ -521,6 +685,9 @@ const AdminDashboard = () => {
                                                             {[
                                                                 { icon: quiz.resultsPublished ? '🙈' : '📤', label: quiz.resultsPublished ? 'Hide Results' : 'Publish Results', action: () => handleToggleResults(quiz._id) },
                                                                 { icon: quiz.leaderboardPublished ? '🙈' : '🏆', label: quiz.leaderboardPublished ? 'Hide Leaderboard' : 'Publish Leaderboard', action: () => handleToggleLeaderboard(quiz._id) },
+                                                                ...(new Date().getTime() < new Date(quiz.startTime).getTime() ? [
+                                                                    { icon: '📡', label: quiz.liveMonitoringEnabled ? 'Disable Monitoring' : 'Enable Monitoring', action: () => handleToggleMonitoring(quiz._id) }
+                                                                ] : []),
                                                                 { icon: '⏹', label: 'Stop Quiz', action: () => handleStopQuiz(quiz._id), color: '#cc000a' },
                                                                 { icon: '🗑', label: 'Delete Quiz', action: () => handleDeleteQuiz(quiz._id), color: '#cc000a' },
                                                             ].map(item => (
@@ -652,31 +819,116 @@ const AdminDashboard = () => {
                                     </div>
                                 </div>
 
+                                 {/* Fallback Banner when Live Monitoring is Disabled */}
+                                {!attendees.liveMonitoringEnabled && (
+                                    <div style={{ padding: '24px', textAlign: 'center', background: 'rgba(255,159,10,0.06)', border: '1px solid rgba(255,159,10,0.15)', borderRadius: 16, marginBottom: 20 }}>
+                                        <p style={{ fontSize: 13, color: '#b25e00', fontWeight: 600, margin: 0 }}>
+                                            ⚠️ Live monitoring is disabled for this quiz. Real-time statistics, anti-cheat tracking, and remote student actions are unavailable.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Live Metrics (only displayed if monitoring is enabled) */}
+                                {attendees.liveMonitoringEnabled && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12, marginBottom: 20 }}>
+                                        {[
+                                            { label: 'Total', count: stats.total, color: '#4a5568', bg: 'rgba(74,85,104,0.08)' },
+                                            { label: 'Connected', count: stats.connected, color: '#30d158', bg: 'rgba(48,209,88,0.08)' },
+                                            { label: 'Reconnecting', count: stats.reconnecting, color: '#ff9f0a', bg: 'rgba(255,159,10,0.08)' },
+                                            { label: 'Offline', count: stats.offline, color: '#ff3b30', bg: 'rgba(255,59,48,0.08)' },
+                                            { label: 'Submitted', count: stats.submitted, color: '#6c63ff', bg: 'rgba(108,99,255,0.08)' },
+                                            { label: 'Expired', count: stats.expired, color: '#718096', bg: 'rgba(113,128,150,0.08)' },
+                                            { label: 'Suspicious', count: stats.suspicious, color: '#cc000a', bg: 'rgba(204,0,10,0.08)' },
+                                        ].map(item => (
+                                            <div key={item.label} style={{ background: item.bg, padding: '12px 14px', borderRadius: 14, textAlign: 'center', border: '1px solid rgba(0,0,0,0.02)' }}>
+                                                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#718096', marginBottom: 4 }}>{item.label}</div>
+                                                <div style={{ fontSize: 18, fontWeight: 900, color: item.color }}>{item.count}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Search & Filters */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: 200 }}>
+                                        <input 
+                                            type="text" 
+                                            placeholder="🔍 Search student name or email..." 
+                                            value={searchQuery} 
+                                            onChange={e => setSearchQuery(e.target.value)} 
+                                            style={{
+                                                width: '100%', padding: '10px 16px', borderRadius: 14, 
+                                                border: '1px solid rgba(0,0,0,0.08)', fontSize: 13, fontWeight: 500,
+                                                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)', outline: 'none'
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                        {['all', 'active', 'offline', 'submitted', 'suspicious'].map(f => (
+                                            <button 
+                                                key={f} 
+                                                onClick={() => setFilter(f)} 
+                                                style={{
+                                                    padding: '8px 14px', borderRadius: 10, border: 'none',
+                                                    background: filter === f ? 'var(--brand-accent)' : 'rgba(0,0,0,0.04)',
+                                                    color: filter === f ? 'white' : '#4a5568',
+                                                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                                                    textTransform: 'capitalize', transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                {f}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {/* Attendee List Table */}
                                 <div style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                         <thead>
                                             <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.06)' }}>
-                                                {['Name', 'Status', 'Flags', 'Score', 'Time'].map(h => (
+                                                {['Name', 'Connection', 'Progress', 'Flags', 'Score', 'Actions'].map(h => (
                                                     <th key={h} style={{ padding: '12px 10px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#8090a0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {attendees.attendees.map((a, i) => (
+                                            {filteredAttendees.map((a, i) => (
                                                 <tr key={a._id || i} style={{ 
                                                     borderBottom: '1px solid rgba(0,0,0,0.04)',
                                                     background: a.flagCount >= 3 ? 'rgba(255,59,48,0.03)' : 'transparent',
                                                     transition: 'background 0.3s ease'
                                                 }}>
-                                                    <td style={{ padding: '14px 10px', fontWeight: 700, color: '#111' }}>{a.name || 'Anonymous'}</td>
                                                     <td style={{ padding: '14px 10px' }}>
-                                                        {a.status === 'in_progress' ? 
-                                                            <span style={{ color: '#1a7a3a', fontWeight: 800, fontSize: 12 }}>🟢 ACTIVE</span> : 
-                                                            a.isBlocked ? 
-                                                            <span style={{ color: '#cc000a', fontWeight: 800, fontSize: 12 }}>🚫 BLOCKED</span> : 
-                                                            <span style={{ color: '#6c63ff', fontWeight: 800, fontSize: 12 }}>✅ DONE</span>
-                                                        }
+                                                        <div style={{ fontWeight: 700, color: '#111' }}>{a.name || 'Anonymous'}</div>
+                                                        <div style={{ fontSize: 10, color: '#718096' }}>{a.email}</div>
+                                                    </td>
+                                                    <td style={{ padding: '14px 10px' }}>
+                                                        {a.status === 'submitted' ? (
+                                                            <span style={{ color: '#6c63ff', fontWeight: 800, fontSize: 11 }}>—</span>
+                                                        ) : a.connectionStatus === 'CONNECTED' ? (
+                                                            <span style={{ color: '#30d158', fontWeight: 800, fontSize: 11 }}>🟢 CONNECTED</span>
+                                                        ) : a.connectionStatus === 'RECONNECTING' ? (
+                                                            <span style={{ color: '#ff9f0a', fontWeight: 800, fontSize: 11 }}>🟠 RECONNECTING</span>
+                                                        ) : (
+                                                            <span style={{ color: '#ff3b30', fontWeight: 800, fontSize: 11 }}>🔴 OFFLINE</span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: '14px 10px' }}>
+                                                        {a.status === 'submitted' ? (
+                                                            <span style={{ color: '#6c63ff', fontWeight: 800, fontSize: 11 }}>✅ SUBMITTED</span>
+                                                        ) : a.status === 'expired' ? (
+                                                            <span style={{ color: '#718096', fontWeight: 800, fontSize: 11 }}>⏰ EXPIRED</span>
+                                                        ) : (
+                                                            <div>
+                                                                <div style={{ fontWeight: 700, color: '#2d3748' }}>Q{a.currentQuestionIndex + 1} ({a.answeredCount} ans)</div>
+                                                                <div style={{ fontSize: 10, color: '#718096' }}>
+                                                                    {a.remainingSeconds > 0 ? (
+                                                                        <>⏰ {Math.floor(a.remainingSeconds / 60)}:{String(a.remainingSeconds % 60).padStart(2, '0')}</>
+                                                                    ) : 'Expired'}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: '14px 10px' }}>
                                                         {a.flagCount > 0 ? 
@@ -685,17 +937,71 @@ const AdminDashboard = () => {
                                                         }
                                                     </td>
                                                     <td style={{ padding: '14px 10px', fontWeight: 900, color: 'var(--brand-accent)', fontSize: 15 }}>{a.score !== null ? a.score : '—'}</td>
-                                                    <td style={{ padding: '14px 10px', color: '#8090a0', fontSize: 11, fontWeight: 600 }}>
-                                                        {a.submittedAt ? new Date(a.submittedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }) : (a.startedAt ? 'Online' : '—')}
+                                                    <td style={{ padding: '14px 10px' }}>
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <NeuButton small onClick={() => setSelectedAttendee(a)}>👁 Details</NeuButton>
+                                                            {attendees.liveMonitoringEnabled && a.status !== 'submitted' && a.attemptId && (
+                                                                <>
+                                                                    <NeuButton small onClick={() => handleForceSubmit(a.attemptId)} style={{ background: '#ff9f0a', color: 'white', border: 'none' }}>Force</NeuButton>
+                                                                    <NeuButton small onClick={() => handleInvalidateSession(a.attemptId)} style={{ background: '#ff3b30', color: 'white', border: 'none' }}>Kick</NeuButton>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {attendees.attendees.length === 0 && (
-                                                <tr><td colSpan="5" style={{ padding: 40, textAlign: 'center', color: '#a0aec0', fontWeight: 600 }}>No students have joined yet.</td></tr>
+                                            {filteredAttendees.length === 0 && (
+                                                <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: '#a0aec0', fontWeight: 600 }}>No matching students found.</td></tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {/* Modal for view details */}
+                                {selectedAttendee && (
+                                    <div style={{
+                                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                                        background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        padding: 20
+                                    }} onClick={() => setSelectedAttendee(null)}>
+                                        <div style={{
+                                            ...neu.card, padding: 24, maxWidth: 500, width: '100%', background: 'white',
+                                            maxHeight: '80vh', overflowY: 'auto'
+                                        }} onClick={e => e.stopPropagation()}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                                                <div>
+                                                    <h3 style={{ fontWeight: 800, fontSize: 18, color: '#111', margin: 0 }}>{selectedAttendee.name}</h3>
+                                                    <p style={{ fontSize: 12, color: '#718096', margin: 0 }}>{selectedAttendee.email}</p>
+                                                </div>
+                                                <NeuButton small onClick={() => setSelectedAttendee(null)}>✕ Close</NeuButton>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13 }}>
+                                                <div><strong>Status:</strong> <span style={{ textTransform: 'uppercase', fontWeight: 700 }}>{selectedAttendee.status}</span></div>
+                                                <div><strong>Connection Status:</strong> <span style={{ textTransform: 'uppercase', fontWeight: 700 }}>{selectedAttendee.connectionStatus || 'UNKNOWN'}</span></div>
+                                                <div><strong>Started At:</strong> {selectedAttendee.startedAt ? new Date(selectedAttendee.startedAt).toLocaleString() : 'N/A'}</div>
+                                                <div><strong>Last Seen At:</strong> {selectedAttendee.lastSeenAt ? new Date(selectedAttendee.lastSeenAt).toLocaleString() : 'N/A'}</div>
+                                                <div><strong>Flag Count:</strong> <span style={{ color: '#cc000a', fontWeight: 700 }}>{selectedAttendee.flagCount}</span></div>
+                                                
+                                                <div>
+                                                    <strong>Flags History:</strong>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, maxHeight: 150, overflowY: 'auto', background: 'rgba(0,0,0,0.02)', padding: 10, borderRadius: 10 }}>
+                                                        {selectedAttendee.flagEvents?.length === 0 ? (
+                                                            <span style={{ color: '#a0aec0', fontSize: 12 }}>No flags reported for this session.</span>
+                                                        ) : (
+                                                            selectedAttendee.flagEvents?.map((evt, idx) => (
+                                                                <div key={idx} style={{ fontSize: 11, display: 'flex', justifyContent: 'space-between' }}>
+                                                                    <span style={{ fontWeight: 600 }}>{evt.type?.replace('_', ' ').toUpperCase()}</span>
+                                                                    <span style={{ color: '#718096' }}>{new Date(evt.timestamp).toLocaleTimeString()}</span>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

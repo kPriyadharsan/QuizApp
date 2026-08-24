@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Attempt from './models/Attempt.js';
 import User from './models/User.js';
+import Quiz from './models/Quiz.js';
 
 let io;
 
@@ -132,12 +133,15 @@ export const initSocket = (httpServer) => {
 
                 socket.emit("attempt:join_confirmed", { attemptId, quizId });
 
-                // Broadcast join to admin room
-                io.to(`admin:${quizId}`).emit("monitor:participant", {
-                    userId: socket.user.userId,
-                    status: 'CONNECTED',
-                    attemptId
-                });
+                // Broadcast join to admin room if live monitoring is enabled
+                const quiz = await Quiz.findById(quizId);
+                if (quiz?.liveMonitoringEnabled) {
+                    io.to(`admin:${quizId}`).emit("monitor:participant", {
+                        userId: socket.user.userId,
+                        status: 'CONNECTED',
+                        attemptId
+                    });
+                }
 
             } catch (err) {
                 socket.emit("error", { message: "Error joining attempt room", error: err.message });
@@ -153,11 +157,14 @@ export const initSocket = (httpServer) => {
                 socket.leave(`attempt:${attemptId}`);
                 if (quizId) {
                     socket.leave(`quiz:${quizId}`);
-                    io.to(`admin:${quizId}`).emit("monitor:participant", {
-                        userId: socket.user.userId,
-                        status: 'DISCONNECTED',
-                        attemptId
-                    });
+                    const quiz = await Quiz.findById(quizId);
+                    if (quiz?.liveMonitoringEnabled) {
+                        io.to(`admin:${quizId}`).emit("monitor:participant", {
+                            userId: socket.user.userId,
+                            status: 'DISCONNECTED',
+                            attemptId
+                        });
+                    }
                 }
 
                 await Attempt.findByIdAndUpdate(attemptId, { connectionStatus: 'DISCONNECTED' }).catch(() => {});
@@ -176,11 +183,14 @@ export const initSocket = (httpServer) => {
                 await Attempt.findByIdAndUpdate(attemptId, { connectionStatus: 'DISCONNECTED' }).catch(() => {});
 
                 if (quizId) {
-                    io.to(`admin:${quizId}`).emit("monitor:participant", {
-                        userId: socket.user.userId,
-                        status: 'DISCONNECTED',
-                        attemptId
-                    });
+                    const quiz = await Quiz.findById(quizId);
+                    if (quiz?.liveMonitoringEnabled) {
+                        io.to(`admin:${quizId}`).emit("monitor:participant", {
+                            userId: socket.user.userId,
+                            status: 'DISCONNECTED',
+                            attemptId
+                        });
+                    }
                 }
             }
         });

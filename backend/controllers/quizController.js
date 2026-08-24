@@ -39,7 +39,7 @@ const quizCache = new Map();
  *   }
  * }
  */
-const activeQuizzes = new Map();
+export const activeQuizzes = new Map();
 
 // --- 3. Backend Request Queue for MongoDB Writes ---
 const saveQueue = new Map(); // key: `${userId}:${quizId}`, value: { answers: {}, timeRemaining: number }
@@ -883,23 +883,25 @@ export const reportFlag = async (req, res) => {
             user = { name: 'System Admin', email: 'dharsan@admin.com' };
         }
 
-        // Emit real-time flag event to admin via Socket.IO
-        const io = getIO();
-        if (io) {
-            const roomName = `admin:${actualQuizIdStr}`;
-            const roomSize = io.sockets.adapter.rooms.get(roomName)?.size || 0;
-            console.log(`📡 BROADCASTING Flag Update: [Room: ${roomName}] [Viewers: ${roomSize}] [User: ${user?.name}] [Flag: ${flagType}]`);
-            
-            io.to(roomName).emit('monitor:flag', {
-                userId: userIdStr,
-                userName: user?.name || 'Unknown',
-                userEmail: user?.email || '',
-                quizId: actualQuizIdStr,
-                flagType,
-                flagCount: attempt.flagCount,
-                flagEvents: attempt.flagEvents,
-                timestamp: new Date()
-            });
+        // Emit real-time flag event to admin via Socket.IO if live monitoring is enabled
+        if (quiz.liveMonitoringEnabled) {
+            const io = getIO();
+            if (io) {
+                const roomName = `admin:${actualQuizIdStr}`;
+                const roomSize = io.sockets.adapter.rooms.get(roomName)?.size || 0;
+                console.log(`📡 BROADCASTING Flag Update: [Room: ${roomName}] [Viewers: ${roomSize}] [User: ${user?.name}] [Flag: ${flagType}]`);
+                
+                io.to(roomName).emit('monitor:flag', {
+                    userId: userIdStr,
+                    userName: user?.name || 'Unknown',
+                    userEmail: user?.email || '',
+                    quizId: actualQuizIdStr,
+                    flagType,
+                    flagCount: attempt.flagCount,
+                    flagEvents: attempt.flagEvents,
+                    timestamp: new Date()
+                });
+            }
         }
 
         res.json({ flagCount: attempt.flagCount });
@@ -968,6 +970,22 @@ export const getAttemptState = async (req, res) => {
             await QuizState.findOneAndDelete({ userId: req.user.id, quizId: quiz._id });
             
             remainingSeconds = 0;
+        }
+
+        attempt.lastSeenAt = now;
+        await attempt.save().catch(() => {});
+
+        // Emit heartbeat to admin if live monitoring is enabled
+        if (quiz.liveMonitoringEnabled) {
+            const io = getIO();
+            if (io) {
+                io.to(`admin:${actualQuizIdStr}`).emit('monitor:participant', {
+                    userId: userIdStr,
+                    attemptId: attempt._id.toString(),
+                    lastSeenAt: now,
+                    remainingSeconds
+                });
+            }
         }
 
         res.json({
@@ -1112,6 +1130,22 @@ export const syncAnswers = async (req, res) => {
                 answers: answersObj,
                 timeRemaining: calculatedTimeRemaining
             });
+
+            // Broadcast live progress to admin if monitoring is enabled
+            const quiz = await Quiz.findById(attempt.quizId);
+            if (quiz && quiz.liveMonitoringEnabled) {
+                const io = getIO();
+                if (io) {
+                    io.to(`admin:${actualQuizIdStr}`).emit('monitor:participant', {
+                        userId: userIdStr,
+                        attemptId: attempt._id.toString(),
+                        currentQuestionIndex: attempt.currentQuestionIndex || 0,
+                        answeredCount: attempt.answers.size,
+                        lastSeenAt: now,
+                        remainingSeconds: calculatedTimeRemaining
+                    });
+                }
+            }
         }
 
         res.json({ success: true, message: 'Answers synchronized successfully', answeredCount: attempt.answers.size });

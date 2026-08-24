@@ -5,7 +5,8 @@ import Submission from '../models/Submission.js';
 import QuizState from '../models/QuizState.js';
 import Attempt from '../models/Attempt.js';
 import AppSettings from '../models/AppSettings.js';
-import { invalidateQuizCache } from './quizController.js';
+import { invalidateQuizCache, activeQuizzes } from './quizController.js';
+import { getIO } from '../socket.js';
 
 // Helper to get or create settings
 const getSettings = async () => {
@@ -18,12 +19,13 @@ const getSettings = async () => {
 
 export const createQuiz = async (req, res) => {
     try {
-        const { title, quizCode, duration, startTime } = req.body;
+        const { title, quizCode, duration, startTime, liveMonitoringEnabled } = req.body;
         const quiz = await Quiz.create({
             title,
             quizCode: quizCode.toUpperCase(),
             duration,
-            startTime
+            startTime,
+            liveMonitoringEnabled: !!liveMonitoringEnabled
         });
         res.status(201).json(quiz);
     } catch (error) {
@@ -238,18 +240,13 @@ export const unblockUser = async (req, res) => {
 export const getLiveAttendees = async (req, res) => {
     try {
         const { quizId } = req.params;
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
 
         // Get submitted users
         const submissions = await Submission.find({ quizId })
             .populate('userId', 'name email isBlocked');
 
-        // Get currently active quiz takers (have active Attempt but haven't submitted yet)
-        const activeStates = await Attempt.find({ quizId, status: 'IN_PROGRESS' })
-            .populate('userId', 'name email isBlocked');
-
-        const totalUsers = await User.countDocuments({ role: 'user' });
-
-        // Build submitted attendees list
         const submitted = submissions.map(s => ({
             _id: s.userId?._id,
             name: s.userId?.name,
@@ -264,21 +261,42 @@ export const getLiveAttendees = async (req, res) => {
             flagCount: s.tabSwitches + s.fullscreenExits
         }));
 
-        // Build active (in-progress) attendees list
-        const active = activeStates.map(s => ({
-            _id: s.userId?._id,
-            name: s.userId?.name,
-            email: s.userId?.email,
-            isBlocked: s.userId?.isBlocked,
-            score: null,
-            isSuspicious: s.flagCount > 0,
-            status: 'in_progress',
-            flagCount: s.flagCount || 0,
-            flagEvents: s.flagEvents || [],
-            startedAt: s.startedAt
-        }));
+        let active = [];
+        const totalUsers = await User.countDocuments({ role: 'user' });
+
+        if (quiz.liveMonitoringEnabled) {
+            // Get currently active quiz takers
+            const activeStates = await Attempt.find({ quizId, status: { $in: ['IN_PROGRESS', 'EXPIRED'] } })
+                .populate('userId', 'name email isBlocked');
+
+            active = activeStates.map(s => {
+                const expiresAtMs = new Date(s.expiresAt).getTime();
+                const nowMs = Date.now();
+                const remainingSeconds = Math.max(0, Math.floor((expiresAtMs - nowMs) / 1000));
+
+                return {
+                    _id: s.userId?._id,
+                    name: s.userId?.name,
+                    email: s.userId?.email,
+                    isBlocked: s.userId?.isBlocked,
+                    score: null,
+                    isSuspicious: s.flagCount > 0,
+                    status: s.status === 'EXPIRED' ? 'expired' : 'in_progress',
+                    connectionStatus: s.connectionStatus,
+                    currentQuestionIndex: s.currentQuestionIndex || 0,
+                    answeredCount: s.answeredCount || 0,
+                    remainingSeconds,
+                    startedAt: s.startedAt,
+                    lastSeenAt: s.lastSeenAt,
+                    flagCount: s.flagCount || 0,
+                    flagEvents: s.flagEvents || [],
+                    attemptId: s._id
+                };
+            });
+        }
 
         res.json({
+            liveMonitoringEnabled: quiz.liveMonitoringEnabled,
             attendees: [...active, ...submitted],
             totalUsers,
             attendeeCount: active.length + submitted.length,
@@ -309,5 +327,126 @@ export const getAppSettings = async (req, res) => {
         res.json({ registrationOpen: settings.registrationOpen });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching settings', error: error.message });
+    }
+};
+
+export const toggleLiveMonitoring = async (req, res) => {
+    try {
+        const { quizId } = req.body;
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+
+        // Lock check: check if quiz has already become LIVE
+        if (new Date().getTime() >= new Date(quiz.startTime).getTime()) {
+            return res.status(400).json({ message: 'Settings locked: Cannot configure live monitoring after the quiz has started.' });
+        }
+
+        quiz.liveMonitoringEnabled = !quiz.liveMonitoringEnabled;
+        await quiz.save();
+        invalidateQuizCache(quizId);
+        res.json({ message: `Live monitoring ${quiz.liveMonitoringEnabled ? 'enabled' : 'disabled'} successfully`, quiz });
+    } catch (error) {
+        res.status(500).json({ message: 'Error configuring live monitoring', error: error.message });
+    }
+};
+
+export const forceSubmitAttempt = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const attempt = await Attempt.findById(attemptId);
+        if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+
+        if (attempt.status !== 'IN_PROGRESS') {
+            return res.status(400).json({ message: `Attempt is already ${attempt.status.toLowerCase()}` });
+        }
+
+        const quiz = await Quiz.findById(attempt.quizId);
+        if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+        const actualQuizIdStr = quiz._id.toString();
+        const userIdStr = attempt.userId.toString();
+
+        attempt.status = 'EXPIRED';
+        attempt.submittedAt = new Date();
+        await attempt.save();
+
+        // Evaluate and create Submission
+        const questionsList = await Question.find({ quizId: quiz._id }).lean();
+        const answersObj = attempt.answers ? Object.fromEntries(attempt.answers) : {};
+        let score = 0;
+        const evaluatedAnswers = Object.keys(answersObj).map(qId => {
+            const question = questionsList.find(q => q._id.toString() === qId);
+            const isCorrect = question && question.correctAnswer === answersObj[qId];
+            if (isCorrect) score += 1;
+            return { questionId: qId, selectedOption: answersObj[qId], isCorrect };
+        });
+
+        const submission = await Submission.create({
+            userId: attempt.userId,
+            quizId: quiz._id,
+            answers: evaluatedAnswers,
+            score,
+            isSuspicious: true,
+            tabSwitches: attempt.flagCount || 0,
+            fullscreenExits: 0,
+            submittedAt: new Date()
+        });
+
+        // Clean memory cache & compatible QuizState
+        activeQuizzes?.get(actualQuizIdStr)?.users.delete(userIdStr);
+        await QuizState.findOneAndDelete({ userId: attempt.userId, quizId: quiz._id });
+
+        // Emit socket events to force-submit the client
+        const io = getIO();
+        if (io) {
+            io.to(`attempt:${attemptId}`).emit('attempt:force-submit');
+            io.to(`admin:${actualQuizIdStr}`).emit('monitor:participant', {
+                userId: userIdStr,
+                status: 'EXPIRED',
+                attemptId
+            });
+        }
+
+        res.json({ message: 'Attempt force submitted successfully', submission });
+    } catch (error) {
+        res.status(500).json({ message: 'Error forcing submission', error: error.message });
+    }
+};
+
+export const invalidateAttemptSession = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const attempt = await Attempt.findById(attemptId);
+        if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+
+        const quiz = await Quiz.findById(attempt.quizId);
+        if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+        const actualQuizIdStr = quiz._id.toString();
+        const userIdStr = attempt.userId.toString();
+
+        attempt.status = 'ABANDONED';
+        await attempt.save();
+
+        // Clean memory cache & compatible QuizState
+        activeQuizzes?.get(actualQuizIdStr)?.users.delete(userIdStr);
+        await QuizState.findOneAndDelete({ userId: attempt.userId, quizId: quiz._id });
+
+        // Emit session-invalid event to student socket and evict them
+        const io = getIO();
+        if (io) {
+            io.to(`attempt:${attemptId}`).emit('attempt:session-invalid', { reason: 'Your session has been invalidated by the administrator.' });
+            io.to(`admin:${actualQuizIdStr}`).emit('monitor:participant', {
+                userId: userIdStr,
+                status: 'ABANDONED',
+                attemptId
+            });
+        }
+
+        res.json({ message: 'Attempt session invalidated successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error invalidating session', error: error.message });
     }
 };

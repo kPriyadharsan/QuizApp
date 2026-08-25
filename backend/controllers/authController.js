@@ -10,6 +10,7 @@ const generateToken = (id, role) => {
 };
 
 export const registerUser = async (req, res) => {
+    console.log('📝 Register payload received:', req.body);
     const { name, email, password, registerNumber, year, department, college, otherCollegeName } = req.body;
 
     try {

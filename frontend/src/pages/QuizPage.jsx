@@ -124,11 +124,6 @@ const checkFullscreenEnforced = (quiz) => {
                      document.documentElement.msRequestFullscreen);
     if (!hasFS) return false;
     
-    // Bypassed on mobile devices to prevent soft-keyboard resize exits
-    const isMobile = typeof navigator !== 'undefined' && 
-                     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) return false;
-    
     return true;
 };
 
@@ -599,15 +594,35 @@ const QuizPage = () => {
         };
     }, [reportFlag, quiz]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const triggerFullscreen = async () => {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || 
+                    el.webkitRequestFullscreen || 
+                    el.mozRequestFullScreen || 
+                    el.msRequestFullscreen;
+        if (req) {
+            try {
+                await req.call(el);
+            } catch (err) {
+                console.warn("Fullscreen request on documentElement failed, trying body...", err);
+                const reqBody = document.body.requestFullscreen || 
+                                document.body.webkitRequestFullscreen || 
+                                document.body.mozRequestFullScreen || 
+                                document.body.msRequestFullscreen;
+                if (reqBody) {
+                    await reqBody.call(document.body);
+                } else {
+                    throw err;
+                }
+            }
+        }
+    };
+
     const enterFullscreen = async () => {
         try {
             const needsFS = checkFullscreenEnforced(quiz);
             if (needsFS) {
-                const reqFS = document.documentElement.requestFullscreen || 
-                              document.documentElement.webkitRequestFullscreen || 
-                              document.documentElement.mozRequestFullScreen || 
-                              document.documentElement.msRequestFullscreen;
-                if (reqFS) await reqFS.call(document.documentElement);
+                await triggerFullscreen();
             }
             setIsFullscreen(true);
             setWarningMsg('');
@@ -622,11 +637,7 @@ const QuizPage = () => {
         try {
             const needsFS = checkFullscreenEnforced(quiz);
             if (needsFS) {
-                const reqFS = document.documentElement.requestFullscreen || 
-                              document.documentElement.webkitRequestFullscreen || 
-                              document.documentElement.mozRequestFullScreen || 
-                              document.documentElement.msRequestFullscreen;
-                if (reqFS) await reqFS.call(document.documentElement);
+                await triggerFullscreen();
                 setIsFullscreen(true);
             } else {
                 setIsFullscreen(true);

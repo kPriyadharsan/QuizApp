@@ -121,7 +121,7 @@ const UserDashboard = () => {
                 </div>
             </motion.div>
 
-            {/* Quick Join Card */}
+            {/* Search & Quick Join Card */}
             <motion.div variants={itemVariants} style={{ marginBottom: 48 }}>
                 <div style={{
                     position: 'relative', borderRadius: 'min(28px, 6vw)', overflow: 'hidden',
@@ -132,25 +132,25 @@ const UserDashboard = () => {
                     
                     <div style={{ position: 'relative', padding: 'clamp(20px, 6vw, 48px)', zIndex: 1 }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(108,99,255,0.1)', color: '#6c63ff', borderRadius: 100, fontWeight: 700, fontSize: 12, marginBottom: 16 }}>
-                            <KeyRound size={14} strokeWidth={3} /> Have a code?
+                            🔍 Search or Join
                         </div>
                         <h2 style={{ fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 10, color: '#111' }}>
-                            Join a Private Quiz
+                            Find Your Quiz
                         </h2>
                         <p style={{ color: '#666', fontSize: 'clamp(14px, 2vw, 16px)', lineHeight: 1.5, marginBottom: 24, maxWidth: 440 }}>
-                            Enter the unique 6-character code provided by your instructor to instantly access your assessment.
+                            Search live quizzes by title, or enter a unique private quiz code to join directly.
                         </p>
                         
                         <form onSubmit={handleJoin} style={{ display: 'flex', gap: 12, maxWidth: 500, flexWrap: 'wrap' }}>
                             <div style={{ flex: '2 1 240px', minWidth: 0 }}>
                                 <input
                                     type="text"
-                                    placeholder="CODE !!"
+                                    placeholder="Enter quiz title or code..."
                                     value={joinCode}
                                     onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
                                     style={{
-                                        width: '100%', padding: '16px 20px', fontSize: 18, fontWeight: 700,
-                                        letterSpacing: '0.15em', color: '#111', background: '#f8f9fa',
+                                        width: '100%', padding: '16px 20px', fontSize: 16, fontWeight: 600,
+                                        color: '#111', background: '#f8f9fa',
                                         border: joinError ? '2px solid rgba(255,59,48,0.5)' : '2px solid transparent',
                                         borderRadius: 16, outline: 'none', transition: 'all 0.2s',
                                         textTransform: 'uppercase'
@@ -159,20 +159,22 @@ const UserDashboard = () => {
                                     onBlur={(e) => { if(!joinError) e.target.style.border = '2px solid transparent'; e.target.style.background = '#f8f9fa'; e.target.style.boxShadow = 'none'; }}
                                 />
                             </div>
-                            <button 
-                                type="submit" 
-                                disabled={joining || !joinCode.trim()} 
-                                style={{
-                                    flex: '1 1 120px', padding: '16px 28px', borderRadius: 16, border: 'none',
-                                    background: (joining || !joinCode.trim()) ? '#e2e2ea' : '#6c63ff',
-                                    color: (joining || !joinCode.trim()) ? '#a0a0ab' : 'white',
-                                    fontWeight: 700, fontSize: 16, cursor: (joining || !joinCode.trim()) ? 'not-allowed' : 'pointer',
-                                    transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                    boxShadow: (joining || !joinCode.trim()) ? 'none' : '0 8px 16px rgba(108,99,255,0.15)'
-                                }}
-                            >
-                                {joining ? 'Verifying...' : 'Join Quiz'} <ArrowRight size={18} strokeWidth={3} />
-                            </button>
+                            {joinCode.trim() && (
+                                <button 
+                                    type="submit" 
+                                    disabled={joining} 
+                                    style={{
+                                        flex: '1 1 120px', padding: '16px 28px', borderRadius: 16, border: 'none',
+                                        background: joining ? '#e2e2ea' : '#6c63ff',
+                                        color: joining ? '#a0a0ab' : 'white',
+                                        fontWeight: 700, fontSize: 16, cursor: joining ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                        boxShadow: joining ? 'none' : '0 8px 16px rgba(108,99,255,0.15)'
+                                    }}
+                                >
+                                    {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={18} strokeWidth={3} />
+                                </button>
+                            )}
                         </form>
                         {joinError && (
                             <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#ff3b30', fontSize: 14, fontWeight: 500, marginTop: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -202,72 +204,112 @@ const UserDashboard = () => {
                         <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#333' }}>No public quizzes running</h3>
                         <p style={{ color: '#777', fontSize: 15, maxWidth: 300, margin: '0 auto' }}>Quizzes will appear here automatically when the admin starts them.</p>
                     </div>
-                ) : (
-                    <div className="grid-auto" style={{ gap: 20 }}>
-                        {quizzes.map(quiz => {
-                            const ti = formatTime(quiz.startTime);
-                            const isActive = ti?.active;
+                ) : (() => {
+                    const filteredQuizzes = quizzes.filter(quiz => 
+                        quiz.title.toLowerCase().includes(joinCode.toLowerCase()) ||
+                        quiz.quizCode.toLowerCase().includes(joinCode.toLowerCase())
+                    );
 
-                            return (
-                                <motion.div 
-                                    key={quiz._id} 
-                                    whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}
-                                    style={{ 
-                                        padding: 24, background: 'white', borderRadius: 24, 
-                                        border: '1px solid rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden',
-                                        display: 'flex', flexDirection: 'column', height: '100%',
-                                        transition: 'border-color 0.3s'
-                                    }}
-                                >
-                                    {isActive && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #30d158, #34c759)' }} />}
-                                    
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                                        <div style={{ 
-                                            width: 48, height: 48, borderRadius: 16, 
-                                            background: isActive ? 'rgba(48,209,88,0.1)' : '#f5f5f7', 
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: isActive ? '#30d158' : '#888'
-                                        }}>
-                                            {isActive ? <CheckCircle2 size={24} strokeWidth={2.5} /> : <CalendarDays size={24} strokeWidth={2} />}
+                    if (filteredQuizzes.length === 0) {
+                        return (
+                            <div style={{ padding: '60px 24px', textAlign: 'center', background: 'white', borderRadius: 28, border: '1px dashed rgba(0,0,0,0.1)' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: '#f8f9fa', marginBottom: 20 }}>
+                                    <CalendarDays size={28} color="#aaa" />
+                                </div>
+                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#333' }}>No matching quizzes found</h3>
+                                <p style={{ color: '#777', fontSize: 15, maxWidth: 300, margin: '0 auto' }}>No quizzes match your search criteria. Check spelling or try a different keyword.</p>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div className="grid-auto" style={{ gap: 20 }}>
+                            {filteredQuizzes.map(quiz => {
+                                const ti = formatTime(quiz.startTime);
+                                const isActive = quiz.status === 'LIVE' || ti?.active;
+
+                                return (
+                                    <motion.div 
+                                        key={quiz._id} 
+                                        whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}
+                                        style={{ 
+                                            padding: 24, background: 'white', borderRadius: 24, 
+                                            border: '1px solid rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden',
+                                            display: 'flex', flexDirection: 'column', height: '100%',
+                                            transition: 'border-color 0.3s'
+                                        }}
+                                    >
+                                        {isActive && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #30d158, #34c759)' }} />}
+                                        
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                                            <div style={{ 
+                                                width: 48, height: 48, borderRadius: 16, 
+                                                background: isActive ? 'rgba(48,209,88,0.1)' : '#f5f5f7', 
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: isActive ? '#30d158' : '#888'
+                                            }}>
+                                                {isActive ? <CheckCircle2 size={24} strokeWidth={2.5} /> : <CalendarDays size={24} strokeWidth={2} />}
+                                            </div>
+                                            
+                                            {isActive ? (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(48,209,88,0.1)', color: '#24a148', borderRadius: 100, fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158', animation: 'timerPulse 1.5s infinite' }} />
+                                                    Live Now
+                                                </span>
+                                            ) : (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#f5f5f7', color: '#666', borderRadius: 100, fontSize: 12, fontWeight: 600 }}>
+                                                    Upcoming
+                                                </span>
+                                            )}
                                         </div>
                                         
-                                        {isActive ? (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(48,209,88,0.1)', color: '#24a148', borderRadius: 100, fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158', animation: 'timerPulse 1.5s infinite' }} />
-                                                Live Now
-                                            </span>
-                                        ) : (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#f5f5f7', color: '#666', borderRadius: 100, fontSize: 12, fontWeight: 600 }}>
-                                                Upcoming
-                                            </span>
-                                        )}
-                                    </div>
-                                    
-                                    <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, lineHeight: 1.3, color: '#111', flex: 1 }}>{quiz.title}</h3>
-                                    
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#666', fontWeight: 500 }}>
-                                            <Clock size={16} /> {quiz.duration} mins time limit
-                                        </div>
-                                        {ti && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: ti.active ? '#30d158' : '#888', fontWeight: 600 }}>
-                                                <CalendarDays size={16} /> {ti.text}
+                                        <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, lineHeight: 1.3, color: '#111', flex: 1 }}>{quiz.title}</h3>
+                                        
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#666', fontWeight: 500 }}>
+                                                <Clock size={16} /> {quiz.duration} mins time limit
                                             </div>
-                                        )}
-                                    </div>
+                                            {ti && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: ti.active ? '#30d158' : '#888', fontWeight: 600 }}>
+                                                    <CalendarDays size={16} /> {ti.text}
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    <div style={{ 
-                                        padding: '12px', borderRadius: 14, background: '#f8f9fa', 
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        fontSize: 14, color: '#555', fontWeight: 600, border: '1px dashed rgba(0,0,0,0.1)'
-                                    }}>
-                                        <KeyRound size={16} opacity={0.6}/> Enter code above to join
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
-                )}
+                                        <div style={{ marginTop: 'auto' }}>
+                                            {isActive ? (
+                                                <button 
+                                                    onClick={() => navigate(`/quiz/${quiz.quizCode}`)}
+                                                    style={{ 
+                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#6c63ff', 
+                                                        color: 'white', border: 'none', fontWeight: 700, fontSize: 14,
+                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                        boxShadow: '0 4px 12px rgba(108,99,255,0.25)', transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#5b52e6'; }}
+                                                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#6c63ff'; }}
+                                                >
+                                                    Start Quiz <ArrowRight size={16} strokeWidth={2.5} />
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    disabled
+                                                    style={{ 
+                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#f5f5f7', 
+                                                        color: '#a0a0ab', border: '1px solid rgba(0,0,0,0.05)', fontWeight: 700, fontSize: 14,
+                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                                    }}
+                                                >
+                                                    Locked (Upcoming)
+                                                </button>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                    );
+                })()}
             </motion.div>
         </motion.div>
     );

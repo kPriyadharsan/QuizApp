@@ -7,6 +7,10 @@ import Attempt from '../models/Attempt.js';
 import AppSettings from '../models/AppSettings.js';
 import { invalidateQuizCache, activeQuizzes, evaluateAttemptScore } from './quizController.js';
 import { getIO } from '../socket.js';
+import { validateFiles, processDocument } from '../utils/documentExtractor.js';
+import { parseMCQ } from '../utils/mcqParser.js';
+import { parseAnswerKeys, matchAndValidate } from '../utils/answerKeyParser.js';
+import { extractAmbiguousSectionsWithAI } from '../services/aiService.js';
 
 const isQuizLocked = (quiz) => {
     if (!quiz) return false;
@@ -580,5 +584,249 @@ export const updateQuiz = async (req, res) => {
         res.json({ message: 'Quiz updated successfully', quiz });
     } catch (error) {
         res.status(500).json({ message: 'Error updating quiz', error: error.message });
+    }
+};
+
+export const importQuestions = async (req, res) => {
+    try {
+        const { quizId, questions, replace } = req.body;
+
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+
+        if (isQuizLocked(quiz)) {
+            return res.status(400).json({ message: 'Settings locked: Cannot import questions after the quiz has started.' });
+        }
+
+        if (!Array.isArray(questions) || questions.length === 0) {
+            return res.status(400).json({ message: 'No questions provided for import.' });
+        }
+
+        // Validate each question structure and content
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            if (!q.question || typeof q.question !== 'string' || !q.question.trim()) {
+                return res.status(400).json({ message: `Question at index ${i} has empty or invalid question text.` });
+            }
+            if (!Array.isArray(q.options) || q.options.length !== 4) {
+                return res.status(400).json({ message: `Question at index ${i} must have exactly 4 options.` });
+            }
+            for (let j = 0; j < 4; j++) {
+                if (typeof q.options[j] !== 'string' || !q.options[j].trim()) {
+                    return res.status(400).json({ message: `Question at index ${i} option ${j + 1} is empty or invalid.` });
+                }
+            }
+            if (!q.correctAnswer || typeof q.correctAnswer !== 'string' || !q.correctAnswer.trim()) {
+                return res.status(400).json({ message: `Question at index ${i} has empty or invalid correct answer.` });
+            }
+            const trimmedOptions = q.options.map(opt => opt.trim());
+            const trimmedCorrect = q.correctAnswer.trim();
+            if (!trimmedOptions.includes(trimmedCorrect)) {
+                return res.status(400).json({ message: `Question at index ${i} correct answer "${trimmedCorrect}" must match one of the options.` });
+            }
+        }
+
+        // Format questions for saving
+        const formattedQuestions = questions.map(q => ({
+            quizId,
+            question: q.question.trim(),
+            options: q.options.map(opt => opt.trim()),
+            correctAnswer: q.correctAnswer.trim(),
+            image: q.image || '',
+            explanation: q.explanation ? q.explanation.trim() : '',
+            explanationImage: q.explanationImage || ''
+        }));
+
+        if (replace) {
+            console.log(`🧹 Replacing existing questions for Quiz: ${quizId}`);
+            await Question.deleteMany({ quizId });
+        }
+
+        const docs = await Question.insertMany(formattedQuestions);
+        invalidateQuizCache(quizId);
+
+        res.status(201).json({
+            message: `Successfully imported ${docs.length} questions.`,
+            count: docs.length
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error importing questions', error: error.message });
+    }
+};
+
+export const extractDocument = async (req, res) => {
+    try {
+        const files = req.files;
+        let aiUsedCount = 0;
+        
+        // 1. Validation
+        validateFiles(files);
+        
+        // 2. Extract content from each file
+        const documents = [];
+        for (const file of files) {
+            const docRep = await processDocument(file);
+            documents.push(docRep);
+        }
+        
+        // 3. Parse MCQ question candidates deterministically
+        let allQuestions = [];
+        for (const doc of documents) {
+            const parsed = parseMCQ(doc);
+            allQuestions = allQuestions.concat(parsed);
+        }
+        
+        // 4. Optional AI Fallback for Ambiguous / Low-Confidence Sections
+        const apiKey = process.env.AI_API_KEY;
+        const provider = process.env.AI_PROVIDER || 'gemini';
+        const modelName = process.env.AI_MODEL;
+        
+        let aiRateLimitErrorOccurred = false;
+        const isRateLimitError = (err) => {
+            const msg = (err.message || '').toLowerCase();
+            return msg.includes('429') || 
+                   msg.includes('quota') || 
+                   msg.includes('rate limit') || 
+                   msg.includes('limit exceeded') || 
+                   msg.includes('too many requests');
+        };
+
+        if (apiKey) {
+            if (allQuestions.length === 0) {
+                console.log('⚠️ Deterministic parser extracted 0 questions. Running AI fallback on full document text...');
+                const fullText = documents.map(doc => 
+                    doc.blocks.map(b => b.text).join('\n')
+                ).join('\n---\n');
+
+                if (fullText.trim()) {
+                    try {
+                        const aiResult = await extractAmbiguousSectionsWithAI(fullText, provider, apiKey, modelName);
+                        aiUsedCount++;
+                        if (aiResult && Array.isArray(aiResult.questions)) {
+                            allQuestions = aiResult.questions.map((aiQ, idx) => ({
+                                sourceNumber: aiQ.sourceNumber || (idx + 1),
+                                questionText: aiQ.questionText || '',
+                                options: {
+                                    A: aiQ.options?.A || '',
+                                    B: aiQ.options?.B || '',
+                                    C: aiQ.options?.C || '',
+                                    D: aiQ.options?.D || ''
+                                },
+                                confidence: aiQ.confidence || 1.0,
+                                isAiParsed: true,
+                                warnings: aiQ.warnings || [],
+                                sourcePage: 1,
+                                sourceText: aiQ.questionText || ''
+                            }));
+                        }
+                    } catch (aiError) {
+                        console.error('⚠️ Optional AI Fallback on full text failed:', aiError.message);
+                        if (isRateLimitError(aiError)) {
+                            aiRateLimitErrorOccurred = true;
+                        }
+                    }
+                }
+            } else {
+                const ambiguousCandidates = allQuestions.filter(q => q.confidence < 0.8);
+                
+                if (ambiguousCandidates.length > 0) {
+                    try {
+                        // Group ambiguous blocks text to process in a single token-efficient request
+                        const ambiguousText = ambiguousCandidates.map((q, idx) => 
+                            `Candidate #${idx + 1}\nQuestion Number: ${q.sourceNumber || 'None'}\nOriginal Text:\n${q.sourceText}`
+                        ).join('\n---\n');
+                        
+                        const aiResult = await extractAmbiguousSectionsWithAI(ambiguousText, provider, apiKey, modelName);
+                        aiUsedCount++;
+                    
+                        if (aiResult && Array.isArray(aiResult.questions)) {
+                            const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                            
+                            // Map AI results for merging
+                            aiResult.questions.forEach((aiQ, idx) => {
+                                // Find the candidate (try matching by sourceNumber first, fallback to order index)
+                                let candidate = null;
+                                if (aiQ.sourceNumber !== null && aiQ.sourceNumber !== undefined) {
+                                    candidate = ambiguousCandidates.find(q => q.sourceNumber === aiQ.sourceNumber);
+                                }
+                                if (!candidate) {
+                                    candidate = ambiguousCandidates[idx];
+                                }
+                                
+                                if (candidate) {
+                                    // Conflict check: does AI output differ significantly from deterministically resolved fields?
+                                    const qConflict = !!(cleanStr(candidate.questionText) !== cleanStr(aiQ.questionText) && candidate.questionText.trim() && aiQ.questionText.trim());
+                                    const optConflict = ['A', 'B', 'C', 'D'].some(o => 
+                                        !!(cleanStr(candidate.options[o]) !== cleanStr(aiQ.options?.[o]) && candidate.options[o].trim() && aiQ.options?.[o]?.trim())
+                                    );
+                                    
+                                    if (qConflict || optConflict) {
+                                        candidate.isConflict = true;
+                                        candidate.warnings.push('CONFLICT: AI output differs from deterministic parsing.');
+                                        candidate.confidence = 0.5;
+                                        candidate.aiFallback = aiQ;
+                                    } else {
+                                        // No conflict, merge AI improvements
+                                        candidate.isAiParsed = true;
+                                        candidate.questionText = aiQ.questionText || candidate.questionText;
+                                        candidate.options = {
+                                            A: aiQ.options?.A || candidate.options.A,
+                                            B: aiQ.options?.B || candidate.options.B,
+                                            C: aiQ.options?.C || candidate.options.C,
+                                            D: aiQ.options?.D || candidate.options.D
+                                        };
+                                        candidate.confidence = 1.0;
+                                        // Clear structural warnings that AI solved
+                                        candidate.warnings = candidate.warnings.filter(w => 
+                                            !w.includes('Missing option label') && !w.includes('Missing question text')
+                                        );
+                                        if (aiQ.warnings && aiQ.warnings.length > 0) {
+                                            candidate.warnings.push(...aiQ.warnings.map(w => `[AI Warning] ${w}`));
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    } catch (aiError) {
+                        console.error('⚠️ Optional AI Fallback failed:', aiError.message);
+                        if (isRateLimitError(aiError)) {
+                            aiRateLimitErrorOccurred = true;
+                        }
+                    }
+                }
+            }
+            if (allQuestions.length === 0 && aiRateLimitErrorOccurred) {
+                return res.status(429).json({ 
+                    message: 'AI rate limit exceeded. Please try again in a few minutes.', 
+                    error: 'AI_RATE_LIMIT_EXCEEDED' 
+                });
+            }
+        } else {
+            console.log('🤖 AI Fallback is disabled (AI_API_KEY is not defined in .env).');
+        }
+        
+        // 5. Parse Answer keys
+        const answersResult = parseAnswerKeys(documents);
+        
+        // 6. Match and Validate
+        const report = matchAndValidate(allQuestions, answersResult);
+        
+        if (apiKey && aiRateLimitErrorOccurred) {
+            report.warnings.push("AI Rate Limit Exceeded: The AI could not help parse ambiguous sections because the rate limit was reached. Please try again in a few minutes or verify manually.");
+        }
+
+        res.json({
+            message: 'Documents parsed and validated successfully.',
+            report,
+            documents,
+            aiStats: {
+                aiUsed: aiUsedCount > 0,
+                callsCount: aiUsedCount
+            }
+        });
+    } catch (error) {
+        res.status(400).json({ message: 'Document extraction and validation failed.', error: error.message });
     }
 };

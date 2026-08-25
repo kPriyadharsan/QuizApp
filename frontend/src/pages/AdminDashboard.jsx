@@ -8,6 +8,8 @@ import {
     Video, Layout, RefreshCcw, ExternalLink, PlayCircle,
     Users, CheckCircle2
 } from 'lucide-react';
+import ImportQuestionsModal from '../components/admin/ImportQuestionsModal';
+import { GuideProvider, useGuide } from '../components/admin/GuideEngine';
 
 // ── Neumorphic styles ──
 const neu = {
@@ -34,7 +36,7 @@ const NeuInput = ({ label, ...props }) => (
     </div>
 );
 
-const NeuButton = ({ children, onClick, type = 'button', variant = 'default', small, disabled, style: sx }) => {
+const NeuButton = ({ children, onClick, type = 'button', variant = 'default', small, disabled, style: sx, ...props }) => {
     const [pressed, setPressed] = useState(false);
     const gradients = {
         primary: 'linear-gradient(135deg,#6c63ff,#a29bfe)',
@@ -45,7 +47,7 @@ const NeuButton = ({ children, onClick, type = 'button', variant = 'default', sm
     const textColors = { primary: 'white', success: 'white', danger: 'white', warning: '#3d2c00', default: '#555' };
     const isDefault = variant === 'default';
     return (
-        <button type={type} onClick={onClick} disabled={disabled}
+        <button type={type} onClick={onClick} disabled={disabled} {...props}
             onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)} onMouseLeave={() => setPressed(false)}
             style={{
                 padding: small ? '8px 14px' : '10px 20px',
@@ -72,7 +74,8 @@ const toLocalInputValue = (date) => {
 };
 
 const TABS = [
-    { id: 'quizzes', label: '📋 Quizzes' },
+    { id: 'quizzes', label: '📋 Quiz List' },
+    { id: 'create-quiz', label: '＋ Create Quiz' },
     { id: 'questions', label: '❓ Questions' },
     { id: 'results', label: '📊 Results' },
     { id: 'users', label: '👥 Users' },
@@ -148,6 +151,9 @@ const AdminDashboard = () => {
     const [imagePreview, setImagePreview] = useState('');
     const [explanation, setExplanation] = useState('');
     const [explanationImage, setExplanationImage] = useState('');
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importedQuestions, setImportedQuestions] = useState([]);
+    const { startGuide } = useGuide();
 
     const [openDropdownId, setOpenDropdownId] = useState(null);
     const dropdownRef = useRef(null);
@@ -233,6 +239,11 @@ const AdminDashboard = () => {
     useEffect(() => {
         if (activeTab === 'users') fetchUsers(usersPage);
     }, [activeTab, usersPage]);
+
+    useEffect(() => {
+        // Explicitly release any body scroll lock when switching tabs to ensure quizzes/results are scrollable
+        document.body.style.overflow = '';
+    }, [activeTab]);
 
     useEffect(() => {
         if (selectedQuizId) {
@@ -526,6 +537,7 @@ const AdminDashboard = () => {
         setAllowQuestionImages(q.allowQuestionImages !== undefined ? q.allowQuestionImages : true);
 
         if (formPanelRef.current) formPanelRef.current.scrollIntoView({ behavior: 'smooth' });
+        setActiveTab('create-quiz');
     };
 
     const handleCancelEditQuiz = () => {
@@ -555,6 +567,8 @@ const AdminDashboard = () => {
         setShowCorrectAnswers(false);
         setShowExplanations(false);
         setAllowQuestionImages(true);
+        setImportedQuestions([]);
+        setActiveTab('quizzes');
     };
 
     const handleCreateQuiz = async (e) => {
@@ -575,9 +589,22 @@ const AdminDashboard = () => {
                 await axios.put(`${import.meta.env.VITE_API_URL}/api/admin/quiz/${editingQuizId}`, payload, { headers: { Authorization: `Bearer ${user.token}` } });
                 alert('Quiz updated successfully!');
             } else {
-                await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/create-quiz`, payload, { headers: { Authorization: `Bearer ${user.token}` } });
-                alert('Quiz created successfully!');
+                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/create-quiz`, payload, { headers: { Authorization: `Bearer ${user.token}` } });
+                const createdQuiz = res.data;
+                const newQuizId = createdQuiz?._id;
+                
+                if (newQuizId && importedQuestions.length > 0) {
+                    await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/import-questions`, {
+                        quizId: newQuizId,
+                        questions: importedQuestions,
+                        replace: false
+                    }, { headers: { Authorization: `Bearer ${user.token}` } });
+                    alert('Quiz created and all questions imported successfully!');
+                } else {
+                    alert('Quiz created successfully!');
+                }
             }
+            setImportedQuestions([]);
             handleCancelEditQuiz();
             fetchQuizzes();
         } catch (err) {
@@ -599,6 +626,16 @@ const AdminDashboard = () => {
         setExplanation('');
         setExplanationImage('');
         if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleImportSuccess = (questionsPayload) => {
+        if (questionsPayload) {
+            setImportedQuestions(questionsPayload);
+        } else {
+            if (selectedQuizId) {
+                fetchQuestions(selectedQuizId);
+            }
+        }
     };
 
     const handleEditQuestionClick = (q) => {
@@ -739,154 +776,188 @@ const AdminDashboard = () => {
                 ))}
             </div>
 
-            {/* ── QUIZZES TAB ── */}
+            {/* ── CREATE QUIZ TAB ── */}
+            {activeTab === 'create-quiz' && (
+                <div style={{ maxWidth: 850, margin: '0 auto', paddingBottom: 40 }}>
+                    <div ref={formPanelRef} style={{ ...neu.card, padding: '28px 24px' }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: 'var(--color-text-primary)' }}>
+                            {editingQuizId ? `✏️ Edit Quiz: ${title}` : '＋ Create New Quiz'}
+                        </h3>
+                        <form onSubmit={handleCreateQuiz} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                            {/* --- BASIC INFO --- */}
+                            <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 4 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Basic Information</h4>
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <NeuInput label="Quiz Title" type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. ECE Fundamentals 2026" />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <NeuInput label="Quiz Code" type="text" required value={quizCode} onChange={e => setQuizCode(e.target.value.toUpperCase())} placeholder="e.g. ECE2026" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }} />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Description</label>
+                                <textarea 
+                                    value={description} 
+                                    onChange={e => setDescription(e.target.value)} 
+                                    placeholder="Add a brief description..." 
+                                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', minHeight: 60, fontFamily: 'inherit', fontSize: 13 }}
+                                />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Instructions</label>
+                                <textarea 
+                                    value={instructions} 
+                                    onChange={e => setInstructions(e.target.value)} 
+                                    placeholder="Add instructions for takers..." 
+                                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', minHeight: 60, fontFamily: 'inherit', fontSize: 13 }}
+                                />
+                            </div>
+
+                            {/* --- SCHEDULE --- */}
+                            <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Schedule & Timeline</h4>
+                            </div>
+                            <NeuInput label="Duration (min)" type="number" required value={duration} onChange={e => setDuration(Number(e.target.value))} min="1" />
+                            <NeuInput label="Timezone" type="text" required value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="UTC" />
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <NeuInput label="Start Time" type="datetime-local" required value={startTime} onChange={e => setStartTime(e.target.value)} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Status</label>
+                                <select 
+                                    value={status} 
+                                    onChange={e => setStatus(e.target.value)} 
+                                    style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', background: 'white', fontSize: 13 }}
+                                >
+                                    <option value="DRAFT">Drafting (Design)</option>
+                                    <option value="SCHEDULED">Scheduled</option>
+                                    <option value="LIVE">In Progress (Live)</option>
+                                    <option value="COMPLETED">Concluded</option>
+                                </select>
+                            </div>
+
+                            {/* --- QUESTION SETTINGS --- */}
+                            <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Question Settings</h4>
+                            </div>
+                            <NeuInput label="Max Questions to Ask (0 for all)" type="number" required value={numberOfQuestions} onChange={e => setNumberOfQuestions(Number(e.target.value))} min="0" />
+                            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+                                {[
+                                    { id: 'randomizeQuestions', checked: randomizeQuestions, set: setRandomizeQuestions, label: 'Randomize Questions Order' },
+                                    { id: 'randomizeOptions', checked: randomizeOptions, set: setRandomizeOptions, label: 'Randomize Options Order' },
+                                    { id: 'allowQuestionNavigation', checked: allowQuestionNavigation, set: setAllowQuestionNavigation, label: 'Allow Question Navigation (Back/Forth)' },
+                                    { id: 'allowAnswerChange', checked: allowAnswerChange, set: setAllowAnswerChange, label: 'Allow Changing Selected Answers' }
+                                ].map(cfg => (
+                                    <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                        <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* --- SCORING --- */}
+                            <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Scoring Settings</h4>
+                            </div>
+                            <NeuInput label="Marks per Question" type="number" required value={marksPerQuestion} onChange={e => setMarksPerQuestion(Number(e.target.value))} min="1" />
+                            <NeuInput label="Negative Marks" type="number" required value={negativeMarks} onChange={e => setNegativeMarks(Number(e.target.value))} min="0" step="0.25" disabled={!negativeMarkingEnabled} />
+                            <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <input type="checkbox" id="negativeMarkingEnabled" checked={negativeMarkingEnabled} onChange={e => setNegativeMarkingEnabled(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                <label htmlFor="negativeMarkingEnabled" style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>Enable Negative Marking</label>
+                            </div>
+
+                            {/* --- SECURITY --- */}
+                            <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Security & Integrity</h4>
+                            </div>
+                            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {[
+                                    { id: 'oneAttemptOnly', checked: oneAttemptOnly, set: setOneAttemptOnly, label: 'Enforce One Attempt Only per student' },
+                                    { id: 'singleActiveSession', checked: singleActiveSession, set: setSingleActiveSession, label: 'Enforce Single Active Session' },
+                                    { id: 'fullscreenRequired', checked: fullscreenRequired, set: setFullscreenRequired, label: 'Require Fullscreen Mode' },
+                                    { id: 'tabSwitchMonitoring', checked: tabSwitchMonitoring, set: setTabSwitchMonitoring, label: 'Monitor Tab Switches & Evict' }
+                                ].map(cfg => (
+                                    <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                        <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* --- RESULTS & MONITORING --- */}
+                            <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
+                                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Results & Monitoring</h4>
+                            </div>
+                            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {[
+                                    { id: 'liveMonitoringEnabled', checked: liveMonitoringEnabled, set: setLiveMonitoringEnabled, label: 'Enable Real-time Monitoring & Anti-cheat Banners' },
+                                    { id: 'showScoreAfterSubmit', checked: showScoreAfterSubmit, set: setShowScoreAfterSubmit, label: 'Show Score Instantly After Submission' },
+                                    { id: 'showCorrectAnswers', checked: showCorrectAnswers, set: setShowCorrectAnswers, label: 'Show Correct Answers on Results Page' },
+                                    { id: 'showExplanations', checked: showExplanations, set: setShowExplanations, label: 'Show Explanations on Results Page' },
+                                    { id: 'allowQuestionImages', checked: allowQuestionImages, set: setAllowQuestionImages, label: 'Allow Question Images' }
+                                ].map(cfg => (
+                                    <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                                        <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* --- QUESTIONS IMPORT SECTION (NEW QUIZ ONLY) --- */}
+                            {!editingQuizId && (
+                                <div style={{ gridColumn: 'span 2', marginTop: 12, borderTop: '1px dashed rgba(0,0,0,0.1)', paddingTop: 16 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Questions (Optional)</h4>
+                                            <p style={{ margin: '4px 0 0 0', fontSize: 11.5, color: 'var(--color-text-secondary)' }}>
+                                                {importedQuestions.length > 0 
+                                                    ? `⚡ ${importedQuestions.length} questions buffered for creation.` 
+                                                    : 'Import questions from document files to automatically load them into this quiz.'}
+                                            </p>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setIsImportModalOpen(true)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(108,99,255,0.3)',
+                                                background: 'rgba(108,99,255,0.06)', color: 'var(--brand-accent)',
+                                                fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                                            }}
+                                        >
+                                            📥 Import Questions
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                                {editingQuizId && (
+                                    <NeuButton type="button" onClick={handleCancelEditQuiz} variant="secondary">Cancel</NeuButton>
+                                )}
+                                <NeuButton type="submit" variant="primary">
+                                    {editingQuizId ? 'Update Quiz ✓' : 'Create Quiz →'}
+                                </NeuButton>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── QUIZZES TAB (LIST & LIVE MONITOR) ── */}
             {activeTab === 'quizzes' && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }} className="responsive-grid">
                     {/* Left Column: Management & Monitor */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        {/* Create Quiz */}
-                        <div ref={formPanelRef} style={{ ...neu.card, padding: '28px 24px' }}>
-                            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: 'var(--color-text-primary)' }}>
-                                {editingQuizId ? `✏️ Edit Quiz: ${title}` : '＋ Create New Quiz'}
-                            </h3>
-                            <form onSubmit={handleCreateQuiz} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                {/* --- BASIC INFO --- */}
-                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 4 }}>
-                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Basic Information</h4>
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <NeuInput label="Quiz Title" type="text" required value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. ECE Fundamentals 2026" />
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <NeuInput label="Quiz Code" type="text" required value={quizCode} onChange={e => setQuizCode(e.target.value.toUpperCase())} placeholder="e.g. ECE2026" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }} />
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Description</label>
-                                    <textarea 
-                                        value={description} 
-                                        onChange={e => setDescription(e.target.value)} 
-                                        placeholder="Add a brief description..." 
-                                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', minHeight: 60, fontFamily: 'inherit', fontSize: 13 }}
-                                    />
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Instructions</label>
-                                    <textarea 
-                                        value={instructions} 
-                                        onChange={e => setInstructions(e.target.value)} 
-                                        placeholder="Add instructions for takers..." 
-                                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', minHeight: 60, fontFamily: 'inherit', fontSize: 13 }}
-                                    />
-                                </div>
-
-                                {/* --- SCHEDULE --- */}
-                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
-                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Schedule & Timeline</h4>
-                                </div>
-                                <NeuInput label="Duration (min)" type="number" required value={duration} onChange={e => setDuration(Number(e.target.value))} min="1" />
-                                <NeuInput label="Timezone" type="text" required value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="UTC" />
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <NeuInput label="Start Time" type="datetime-local" required value={startTime} onChange={e => setStartTime(e.target.value)} />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: 12, fontWeight: 700, color: '#4a5568', display: 'block', marginBottom: 6 }}>Status</label>
-                                    <select 
-                                        value={status} 
-                                        onChange={e => setStatus(e.target.value)} 
-                                        style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', outline: 'none', background: 'white', fontSize: 13 }}
-                                    >
-                                        <option value="DRAFT">Draft</option>
-                                        <option value="SCHEDULED">Scheduled</option>
-                                        <option value="LIVE">Live</option>
-                                        <option value="COMPLETED">Completed</option>
-                                    </select>
-                                </div>
-
-                                {/* --- QUESTION SETTINGS --- */}
-                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
-                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Question Settings</h4>
-                                </div>
-                                <NeuInput label="Max Questions to Ask (0 for all)" type="number" required value={numberOfQuestions} onChange={e => setNumberOfQuestions(Number(e.target.value))} min="0" />
-                                <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-                                    {[
-                                        { id: 'randomizeQuestions', checked: randomizeQuestions, set: setRandomizeQuestions, label: 'Randomize Questions Order' },
-                                        { id: 'randomizeOptions', checked: randomizeOptions, set: setRandomizeOptions, label: 'Randomize Options Order' },
-                                        { id: 'allowQuestionNavigation', checked: allowQuestionNavigation, set: setAllowQuestionNavigation, label: 'Allow Question Navigation (Back/Forth)' },
-                                        { id: 'allowAnswerChange', checked: allowAnswerChange, set: setAllowAnswerChange, label: 'Allow Changing Selected Answers' }
-                                    ].map(cfg => (
-                                        <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                                            <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* --- SCORING --- */}
-                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
-                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Scoring Settings</h4>
-                                </div>
-                                <NeuInput label="Marks per Question" type="number" required value={marksPerQuestion} onChange={e => setMarksPerQuestion(Number(e.target.value))} min="1" />
-                                <NeuInput label="Negative Marks" type="number" required value={negativeMarks} onChange={e => setNegativeMarks(Number(e.target.value))} min="0" step="0.25" disabled={!negativeMarkingEnabled} />
-                                <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <input type="checkbox" id="negativeMarkingEnabled" checked={negativeMarkingEnabled} onChange={e => setNegativeMarkingEnabled(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                                    <label htmlFor="negativeMarkingEnabled" style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>Enable Negative Marking</label>
-                                </div>
-
-                                {/* --- SECURITY --- */}
-                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
-                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Security & Integrity</h4>
-                                </div>
-                                <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                    {[
-                                        { id: 'oneAttemptOnly', checked: oneAttemptOnly, set: setOneAttemptOnly, label: 'Enforce One Attempt Only per student' },
-                                        { id: 'singleActiveSession', checked: singleActiveSession, set: setSingleActiveSession, label: 'Enforce Single Active Session' },
-                                        { id: 'fullscreenRequired', checked: fullscreenRequired, set: setFullscreenRequired, label: 'Require Fullscreen Mode' },
-                                        { id: 'tabSwitchMonitoring', checked: tabSwitchMonitoring, set: setTabSwitchMonitoring, label: 'Monitor Tab Switches & Evict' }
-                                    ].map(cfg => (
-                                        <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                                            <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* --- RESULTS & MONITORING --- */}
-                                <div style={{ gridColumn: 'span 2', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6, marginTop: 12 }}>
-                                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase' }}>Results & Monitoring</h4>
-                                </div>
-                                <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                    {[
-                                        { id: 'liveMonitoringEnabled', checked: liveMonitoringEnabled, set: setLiveMonitoringEnabled, label: 'Enable Real-time Monitoring & Anti-cheat Banners' },
-                                        { id: 'showScoreAfterSubmit', checked: showScoreAfterSubmit, set: setShowScoreAfterSubmit, label: 'Show Score Instantly After Submission' },
-                                        { id: 'showCorrectAnswers', checked: showCorrectAnswers, set: setShowCorrectAnswers, label: 'Show Correct Answers on Results Page' },
-                                        { id: 'showExplanations', checked: showExplanations, set: setShowExplanations, label: 'Show Explanations on Results Page' },
-                                        { id: 'allowQuestionImages', checked: allowQuestionImages, set: setAllowQuestionImages, label: 'Allow Question Images' }
-                                    ].map(cfg => (
-                                        <div key={cfg.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <input type="checkbox" id={cfg.id} checked={cfg.checked} onChange={e => cfg.set(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                                            <label htmlFor={cfg.id} style={{ fontSize: 12.5, fontWeight: 600, color: '#4a5568', cursor: 'pointer' }}>{cfg.label}</label>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                                    {editingQuizId && (
-                                        <NeuButton type="button" onClick={handleCancelEditQuiz} variant="secondary">Cancel</NeuButton>
-                                    )}
-                                    <NeuButton type="submit" variant="primary">
-                                        {editingQuizId ? 'Update Quiz ✓' : 'Create Quiz →'}
-                                    </NeuButton>
-                                </div>
-                            </form>
-                        </div>
-
                         {/* Quiz List */}
                         <div>
-                            <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: 'var(--color-text-primary)' }}>All Quizzes</h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                <h3 style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)', margin: 0 }}>All Quizzes</h3>
+                                <NeuButton small onClick={() => setActiveTab('create-quiz')}>＋ Create New Quiz</NeuButton>
+                            </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {quizzes.length === 0 && (
                                     <div style={{ ...neu.card, padding: '32px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: 14 }}>
-                                        No quizzes yet. Create your first quiz above.
+                                        No quizzes yet. Create your first quiz using the tab above.
                                     </div>
                                 )}
                                 {quizzes.map(quiz => (
@@ -896,11 +967,17 @@ const AdminDashboard = () => {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                                                     <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)' }}>{quiz.title}</span>
                                                     <span style={{
-                                                        fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 100,
-                                                        background: quiz.isActive ? 'rgba(48,209,88,0.12)' : 'rgba(0,0,0,0.06)',
-                                                        color: quiz.isActive ? '#1a7a3a' : '#888'
+                                                        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100,
+                                                        background: quiz.status === 'LIVE' ? 'rgba(48,209,88,0.1)' : 
+                                                                    quiz.status === 'SCHEDULED' ? 'rgba(255,159,10,0.1)' :
+                                                                    quiz.status === 'COMPLETED' ? 'rgba(113,128,150,0.1)' : 'rgba(108,99,255,0.1)',
+                                                        color: quiz.status === 'LIVE' ? '#1a7a3a' :
+                                                               quiz.status === 'SCHEDULED' ? '#b25e00' :
+                                                               quiz.status === 'COMPLETED' ? '#4a5568' : 'var(--brand-accent)'
                                                     }}>
-                                                        {quiz.isActive ? '🟢 Active' : '⚫ Stopped'}
+                                                        {quiz.status === 'LIVE' ? '🟢 In Progress' :
+                                                         quiz.status === 'SCHEDULED' ? '📅 Scheduled' :
+                                                         quiz.status === 'COMPLETED' ? '🔒 Concluded' : '📝 Drafting'}
                                                     </span>
                                                     {quiz.resultsPublished && <span className="badge badge-info" style={{ fontSize: 11 }}>Results ✓</span>}
                                                     {quiz.leaderboardPublished && <span className="badge badge-success" style={{ fontSize: 11 }}>Board ✓</span>}
@@ -1068,7 +1145,7 @@ const AdminDashboard = () => {
                                     </div>
                                 </div>
 
-                                 {/* Fallback Banner when Live Monitoring is Disabled */}
+                                {/* Fallback Banner when Live Monitoring is Disabled */}
                                 {!attendees.liveMonitoringEnabled && (
                                     <div style={{ padding: '24px', textAlign: 'center', background: 'rgba(255,159,10,0.06)', border: '1px solid rgba(255,159,10,0.15)', borderRadius: 16, marginBottom: 20 }}>
                                         <p style={{ fontSize: 13, color: '#b25e00', fontWeight: 600, margin: 0 }}>
@@ -1254,42 +1331,8 @@ const AdminDashboard = () => {
                                 )}
                             </div>
                         )}
-                    </div>
 
-                    {/* Right Column: Quick Stats Sidebar */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, position: 'sticky', top: 24 }}>
-                        <div style={{ ...neu.card, padding: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--brand-accent)' }} />
-                                <h3 style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#111' }}>Dashboard Stats</h3>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {[
-                                    { icon: <PlayCircle size={18} />, label: 'Total Quizzes', count: quizzes.length, color: '#6c63ff', bg: 'rgba(108,99,255,0.08)' },
-                                    { icon: <ShieldAlert size={18} />, label: 'Active Sessions', count: quizzes.filter(q => q.isActive).length, color: '#30d158', bg: 'rgba(48,209,88,0.08)' },
-                                    { icon: <Users size={18} />, label: 'Users Online', count: attendees?.activeCount || 0, color: '#ff9f0a', bg: 'rgba(255,159,10,0.08)' },
-                                    { icon: <CheckCircle2 size={18} />, label: 'Submissions', count: results.length, color: '#007aff', bg: 'rgba(0,122,255,0.08)' },
-                                ].map((stat, i) => (
-                                    <div key={i} style={{ 
-                                        padding: '16px', borderRadius: 20, background: 'white', border: '1px solid rgba(0,0,0,0.03)',
-                                        display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
-                                    }}>
-                                        <div style={{ 
-                                            width: 40, height: 40, borderRadius: 12, background: stat.bg, 
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color 
-                                        }}>
-                                            {stat.icon}
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: 18, fontWeight: 900, color: '#111', lineHeight: 1 }}>{stat.count}</div>
-                                            <div style={{ fontSize: 10, color: '#8090a0', fontWeight: 700, marginTop: 4, textTransform: 'uppercase' }}>{stat.label}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Recent Alerts Quick Preview (Optional future feature) */}
+                        {/* Recent Alerts Quick Preview */}
                         <div style={{ ...neu.inset, padding: '16px', borderRadius: 20, textAlign: 'center' }}>
                             <p style={{ fontSize: 11, color: '#8090a0', fontWeight: 600 }}>System Status: <span style={{ color: '#30d158' }}>Nominal</span></p>
                         </div>
@@ -1323,16 +1366,52 @@ const AdminDashboard = () => {
                         className="custom-scrollbar"
                     >
                         {/* Sticky header inside left panel */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
+                        <div 
+                            data-guide="questions-header"
+                            style={{ 
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexShrink: 0
+                            }}
+                        >
                             <div>
                                 <h3 style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)', margin: 0 }}>Questions Directory</h3>
                                 <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4, marginBottom: 0 }}>
                                     {selectedQuizId ? 'Viewing questions for selected quiz' : 'Select a quiz to view questions'}
                                 </p>
                             </div>
-                            <span style={{ fontSize: 12, fontWeight: 700, background: 'var(--neu-bg)', padding: '4px 10px', borderRadius: 20, color: 'var(--brand-accent)', flexShrink: 0 }}>
-                                {questionsList.length} Items
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                {selectedQuizId && (
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button 
+                                            data-guide="guide-me-btn"
+                                            type="button"
+                                            onClick={() => startGuide('question-management')}
+                                            style={{ 
+                                                padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(108,99,255,0.2)', 
+                                                background: 'white', color: 'var(--brand-accent)', 
+                                                fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                                            }}
+                                        >
+                                            📖 Guide Me
+                                        </button>
+                                        <button 
+                                            data-guide="import-mcq-btn"
+                                            type="button"
+                                            onClick={() => setIsImportModalOpen(true)}
+                                            style={{ 
+                                                padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(108,99,255,0.3)', 
+                                                background: 'rgba(108,99,255,0.07)', color: 'var(--brand-accent)', 
+                                                fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                                            }}
+                                        >
+                                            📥 Import MCQ
+                                        </button>
+                                    </div>
+                                )}
+                                <span style={{ fontSize: 12, fontWeight: 700, background: 'var(--neu-bg)', padding: '4px 10px', borderRadius: 20, color: 'var(--brand-accent)' }}>
+                                    {questionsList.length} Items
+                                </span>
+                            </div>
                         </div>
 
                         {/* Scrollable question list body */}
@@ -1342,8 +1421,8 @@ const AdminDashboard = () => {
                                     Please select a quiz on the right to manage its questions.
                                 </div>
                             ) : questionsList.length === 0 ? (
-                                <div style={{ padding: '40px 20px', textAlign: 'center', color: '#8090a0', fontSize: 13 }}>
-                                    No questions found for this quiz. Add one using the form.
+                                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#8090a0', fontSize: 13.5, fontWeight: 600 }}>
+                                    No questions found for this quiz. Add one manually using the form on the right, or click "Import MCQ" to upload documents.
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1438,9 +1517,22 @@ const AdminDashboard = () => {
                     >
                         {/* Form header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
-                            <h3 style={{ margin: 0, fontWeight: 700, fontSize: 16, color: editingQuestionId ? '#007aff' : 'inherit' }}>
-                                {editingQuestionId ? '✎ Edit Question' : '＋ Add Question'}
-                            </h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <h3 style={{ margin: 0, fontWeight: 700, fontSize: 16, color: editingQuestionId ? '#007aff' : 'inherit' }}>
+                                    {editingQuestionId ? '✎ Edit Question' : '＋ Add Question'}
+                                </h3>
+                                <button 
+                                    type="button"
+                                    onClick={() => startGuide('manual-question-entry')}
+                                    style={{ 
+                                        padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(108,99,255,0.2)', 
+                                        background: 'white', color: 'var(--brand-accent)', 
+                                        fontSize: 10.5, fontWeight: 700, cursor: 'pointer'
+                                    }}
+                                >
+                                    📖 Guide
+                                </button>
+                            </div>
                             {editingQuestionId && (
                                 <button onClick={handleCancelEdit} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8090a0', fontSize: 12, fontWeight: 700 }}>✕ Cancel</button>
                             )}
@@ -1454,6 +1546,7 @@ const AdminDashboard = () => {
                                 <div>
                                     <label style={labelStyle}>Target Quiz</label>
                                     <select
+                                        data-guide="select-quiz-prompt"
                                         value={selectedQuizId}
                                         onChange={e => setSelectedQuizId(e.target.value)}
                                         style={{
@@ -1468,7 +1561,7 @@ const AdminDashboard = () => {
                                     </select>
                                 </div>
 
-                                <NeuInput label="Question Text" type="text" required value={question} onChange={e => setQuestion(e.target.value)} placeholder="Enter the question" />
+                                <NeuInput data-guide="manual-question-text" label="Question Text" type="text" required value={question} onChange={e => setQuestion(e.target.value)} placeholder="Enter the question" />
 
                                 {/* Image upload */}
                                 <div>
@@ -1505,21 +1598,25 @@ const AdminDashboard = () => {
                                             return (
                                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                     <button
+                                                        data-guide={i === 0 ? "manual-correct-answer" : undefined}
                                                         type="button"
                                                         onClick={() => opt.trim() && setCorrectAnswer(opt)}
                                                         title="Set as correct answer"
                                                         style={{
                                                             width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer', flexShrink: 0,
                                                             background: isCorrect ? '#30d158' : 'var(--neu-bg)',
-                                                            boxShadow: isCorrect ? '0 4px 10px rgba(48,209,88,0.3)' : '3px 3px 6px rgba(163,177,198,0.6), -3px -3px 6px rgba(255,255,255,0.8)',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800,
-                                                            color: isCorrect ? 'white' : '#8090a0',
+                                                            color: isCorrect ? 'white' : 'var(--color-text-secondary)',
+                                                            fontWeight: 800, fontSize: 13,
+                                                            boxShadow: isCorrect
+                                                                ? '3px 3px 8px rgba(48,209,88,0.3)'
+                                                                : '3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light)',
                                                             transition: 'all 0.2s ease'
                                                         }}
                                                     >
                                                         {['A','B','C','D'][i]}
                                                     </button>
                                                     <input
+                                                        data-guide={`manual-option-${i}`}
                                                         type="text" required value={opt}
                                                         onChange={e => {
                                                             const newOpt = e.target.value;
@@ -1550,6 +1647,7 @@ const AdminDashboard = () => {
                                     <div>
                                         <label style={labelStyle}>Explanation (Optional)</label>
                                         <textarea 
+                                            data-guide="manual-explanation"
                                             value={explanation} 
                                             onChange={e => setExplanation(e.target.value)} 
                                             placeholder="Provide correct answer explanation..." 
@@ -1569,7 +1667,7 @@ const AdminDashboard = () => {
                                     />
                                 </div>
 
-                                <NeuButton type="submit" variant={editingQuestionId ? 'primary' : 'success'} style={{ marginTop: 4 }}>
+                                <NeuButton data-guide="manual-save-btn" type="submit" variant={editingQuestionId ? 'primary' : 'success'} style={{ marginTop: 4 }}>
                                     {editingQuestionId ? '✓ Save Changes' : '＋ Add Question'}
                                 </NeuButton>
                             </form>
@@ -1678,6 +1776,15 @@ const AdminDashboard = () => {
                     {renderPagination(usersPage, usersPages, setUsersPage)}
                 </div>
             )}
+            <ImportQuestionsModal 
+                isOpen={isImportModalOpen} 
+                onClose={() => setIsImportModalOpen(false)} 
+                quizId={activeTab === 'quizzes' ? null : selectedQuizId} 
+                token={user.token} 
+                onImportSuccess={handleImportSuccess} 
+            />
+
+            {/* Guided Tour Component will render globally via GuideProvider */}
         </div>
     );
 
@@ -1686,4 +1793,12 @@ const AdminDashboard = () => {
     }
 };
 
-export default AdminDashboard;
+const AdminDashboardWrapper = (props) => {
+    return (
+        <GuideProvider>
+            <AdminDashboard {...props} />
+        </GuideProvider>
+    );
+};
+
+export default AdminDashboardWrapper;

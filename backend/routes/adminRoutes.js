@@ -1,11 +1,19 @@
 import express from 'express';
-import { createQuiz, addQuestion, getQuestions, updateQuestion, deleteQuestion, getResults, getUsers, toggleResults, toggleLeaderboard, stopQuiz, deleteQuiz, blockUser, unblockUser, getLiveAttendees, getAllQuizzes, toggleRegistration, getAppSettings, toggleLiveMonitoring, forceSubmitAttempt, invalidateAttemptSession, updateQuiz } from '../controllers/adminController.js';
+import { createQuiz, addQuestion, getQuestions, updateQuestion, deleteQuestion, getResults, getUsers, toggleResults, toggleLeaderboard, stopQuiz, deleteQuiz, blockUser, unblockUser, getLiveAttendees, getAllQuizzes, toggleRegistration, getAppSettings, toggleLiveMonitoring, forceSubmitAttempt, invalidateAttemptSession, updateQuiz, importQuestions, extractDocument } from '../controllers/adminController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
+import multer from 'multer';
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
 
 const router = express.Router();
 
 router.post('/create-quiz', protect, admin, createQuiz);
 router.post('/add-question', protect, admin, addQuestion);
+router.post('/import-questions', protect, admin, importQuestions);
+router.post('/extract-document', protect, admin, upload.array('files', 2), extractDocument);
 router.get('/questions/:quizId', protect, admin, getQuestions);
 router.put('/question/:questionId', protect, admin, updateQuestion);
 router.delete('/question/:questionId', protect, admin, deleteQuestion);

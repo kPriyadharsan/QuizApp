@@ -112,6 +112,26 @@ const syncLocalAnswersWithState = async (db, currentAttemptId, serverAnswers) =>
     }
 };
 
+const checkFullscreenEnforced = (quiz) => {
+    if (!quiz) return false;
+    if (quiz.fullscreenRequired === false) return false;
+    
+    // Bypassed if browser doesn't support Fullscreen API (e.g. iOS Safari on iPhone)
+    const hasFS = typeof document !== 'undefined' && 
+                  !!(document.documentElement.requestFullscreen || 
+                     document.documentElement.webkitRequestFullscreen || 
+                     document.documentElement.mozRequestFullScreen || 
+                     document.documentElement.msRequestFullscreen);
+    if (!hasFS) return false;
+    
+    // Bypassed on mobile devices to prevent soft-keyboard resize exits
+    const isMobile = typeof navigator !== 'undefined' && 
+                     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) return false;
+    
+    return true;
+};
+
 /* ── Main Component ───────────────────────────────────── */
 const QuizPage = () => {
     const { quizCode } = useParams();
@@ -210,6 +230,10 @@ const QuizPage = () => {
         }, { headers: { Authorization: `Bearer ${user.token}` } })
             .then(res => {
                 setQuiz(res.data.quiz);
+                const needsFS = checkFullscreenEnforced(res.data.quiz);
+                if (!needsFS) {
+                    setIsFullscreen(true);
+                }
                 if (res.data.status === 'resuming' && res.data.savedState) {
                     setQuestions(res.data.questions);
                     setAnswers(res.data.savedState.answers || {});
@@ -546,7 +570,12 @@ const QuizPage = () => {
             }
         };
         const onFS = async () => {
-            const inFS = !!document.fullscreenElement;
+            const needsFS = checkFullscreenEnforced(quiz);
+            if (!needsFS) {
+                setIsFullscreen(true);
+                return;
+            }
+            const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
             setIsFullscreen(inFS);
             if (!inFS && quizStartedRef.current && !submittingRef.current && !resultRef.current) {
                 const count = await reportFlag('fullscreen_exit');
@@ -568,19 +597,40 @@ const QuizPage = () => {
             document.removeEventListener('fullscreenchange', onFS);
             document.removeEventListener('keydown', onKey);
         };
-    }, [reportFlag]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [reportFlag, quiz]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const enterFullscreen = async () => {
-        try { await document.documentElement.requestFullscreen(); setIsFullscreen(true); setWarningMsg(''); }
-        catch { showWarning('Please allow fullscreen to continue.'); }
+        try {
+            const needsFS = checkFullscreenEnforced(quiz);
+            if (needsFS) {
+                const reqFS = document.documentElement.requestFullscreen || 
+                              document.documentElement.webkitRequestFullscreen || 
+                              document.documentElement.mozRequestFullScreen || 
+                              document.documentElement.msRequestFullscreen;
+                if (reqFS) await reqFS.call(document.documentElement);
+            }
+            setIsFullscreen(true);
+            setWarningMsg('');
+        } catch {
+            showWarning('Please allow fullscreen to continue.');
+        }
     };
 
     const handleStartQuiz = async () => {
         if (isStarting) return;
         setIsStarting(true);
         try {
-            await document.documentElement.requestFullscreen();
-            setIsFullscreen(true);
+            const needsFS = checkFullscreenEnforced(quiz);
+            if (needsFS) {
+                const reqFS = document.documentElement.requestFullscreen || 
+                              document.documentElement.webkitRequestFullscreen || 
+                              document.documentElement.mozRequestFullScreen || 
+                              document.documentElement.msRequestFullscreen;
+                if (reqFS) await reqFS.call(document.documentElement);
+                setIsFullscreen(true);
+            } else {
+                setIsFullscreen(true);
+            }
             if (isResuming) {
                 setQuizStarted(true);
             } else {
@@ -604,11 +654,14 @@ const QuizPage = () => {
         } catch (err) {
             const errMsg = err.response?.data?.message || err.message;
             if (errMsg === 'Quiz already started. Please resume.') {
-                // Cleanly swallow race conditions or mismatched frontend states by forcing a reload
                 window.location.reload();
                 return;
             }
-            if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+            const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            if (inFS) {
+                const exitFS = document.exitFullscreen || document.webkitExitFullscreen;
+                if (exitFS) await exitFS.call(document).catch(() => {});
+            }
             showWarning(errMsg || 'Fullscreen required. Please try again.');
         } finally {
             setIsStarting(false);
@@ -760,7 +813,11 @@ const QuizPage = () => {
                     </ul>
                 </div>
                 <button className="btn btn-primary btn-full" style={{ padding: 15, fontSize: 16 }} onClick={handleStartQuiz} disabled={isStarting}>
-                    {isStarting ? 'Starting...' : `🖥 Enter Fullscreen & ${isResuming ? 'Resume' : 'Start'} Quiz`}
+                    {isStarting ? 'Starting...' : 
+                     checkFullscreenEnforced(quiz)
+                        ? `🖥 Enter Fullscreen & ${isResuming ? 'Resume' : 'Start'} Quiz`
+                        : `🚀 ${isResuming ? 'Resume' : 'Start'} Quiz`
+                    }
                 </button>
             </div>
         </div>

@@ -123,3 +123,56 @@ export const getMe = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+// Request a password reset to admin
+export const requestPasswordReset = async (req, res) => {
+    const { email, registerNumber } = req.body;
+    try {
+        if (!email || !registerNumber) {
+            return res.status(400).json({ message: 'Email and Register Number are required' });
+        }
+        const user = await User.findOne({ email: email.trim().toLowerCase(), registerNumber: registerNumber.trim() });
+        if (!user) {
+            return res.status(404).json({ message: 'No student matches this email and register number' });
+        }
+        
+        user.resetPasswordStatus = 'pending';
+        await user.save();
+        
+        res.json({ message: 'Reset request successfully submitted to admin' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Reset password once approved by admin
+export const resetPassword = async (req, res) => {
+    const { email, registerNumber, newPassword } = req.body;
+    try {
+        if (!email || !registerNumber || !newPassword) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+        const user = await User.findOne({ email: email.trim().toLowerCase(), registerNumber: registerNumber.trim() });
+        if (!user) {
+            return res.status(404).json({ message: 'No student matches this email and register number' });
+        }
+        
+        if (user.resetPasswordStatus === 'pending') {
+            return res.status(403).json({ message: 'Your password reset request is still pending admin approval' });
+        }
+        
+        if (user.resetPasswordStatus === 'none') {
+            return res.status(403).json({ message: 'No reset request approved for this user. Please submit a request first' });
+        }
+        
+        // approved! Hash new password and save
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        user.resetPasswordStatus = 'none'; // reset status
+        await user.save();
+        
+        res.json({ message: 'Password updated successfully. You can now log in' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};

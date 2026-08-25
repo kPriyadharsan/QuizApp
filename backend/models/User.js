@@ -12,7 +12,8 @@ const userSchema = new mongoose.Schema({
     department: { type: String, enum: ['ECE', 'EEE', 'CSE', 'IT', 'AIDS', 'BME'] },
     college: { type: String, enum: ['SVHEC', 'Others'] },
     otherCollegeName: { type: String },
-    isApproved: { type: Boolean, default: false }
+    isApproved: { type: Boolean, default: false },
+    resetPasswordStatus: { type: String, enum: ['none', 'pending', 'approved'], default: 'none' }
 }, { timestamps: true });
 
 userSchema.pre('save', function(next) {

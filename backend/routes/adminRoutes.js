@@ -1,5 +1,5 @@
 import express from 'express';
-import { createQuiz, addQuestion, getQuestions, updateQuestion, deleteQuestion, getResults, getUsers, approveUser, rejectUser, toggleResults, toggleLeaderboard, stopQuiz, deleteQuiz, blockUser, unblockUser, getLiveAttendees, getAllQuizzes, toggleRegistration, getAppSettings, toggleLiveMonitoring, forceSubmitAttempt, invalidateAttemptSession, updateQuiz, importQuestions, extractDocument } from '../controllers/adminController.js';
+import { createQuiz, addQuestion, getQuestions, updateQuestion, deleteQuestion, getResults, getUsers, approveUser, rejectUser, approvePasswordReset, rejectPasswordReset, toggleResults, toggleLeaderboard, stopQuiz, deleteQuiz, blockUser, unblockUser, getLiveAttendees, getAllQuizzes, toggleRegistration, getAppSettings, toggleLiveMonitoring, forceSubmitAttempt, invalidateAttemptSession, updateQuiz, importQuestions, extractDocument } from '../controllers/adminController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import multer from 'multer';
 
@@ -22,6 +22,8 @@ router.get('/results', protect, admin, getResults);
 router.get('/users', protect, admin, getUsers);
 router.post('/approve-user', protect, admin, approveUser);
 router.post('/reject-user', protect, admin, rejectUser);
+router.post('/approve-reset', protect, admin, approvePasswordReset);
+router.post('/reject-reset', protect, admin, rejectPasswordReset);
 router.post('/toggle-results', protect, admin, toggleResults);
 router.post('/toggle-leaderboard', protect, admin, toggleLeaderboard);
 router.post('/stop-quiz', protect, admin, stopQuiz);

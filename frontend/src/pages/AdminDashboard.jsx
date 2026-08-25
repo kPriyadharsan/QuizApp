@@ -101,6 +101,11 @@ const AdminDashboard = () => {
     const [filterYear, setFilterYear] = useState('');
     const [filterDept, setFilterDept] = useState('');
 
+    const [resetRequests, setResetRequests] = useState([]);
+    const [resetRequestsPage, setResetRequestsPage] = useState(1);
+    const [resetRequestsPages, setResetRequestsPages] = useState(1);
+    const [resetRequestsTotal, setResetRequestsTotal] = useState(0);
+
     const [resultsPage, setResultsPage] = useState(1);
     const [resultsPages, setResultsPages] = useState(1);
     const [resultsTotal, setResultsTotal] = useState(0);
@@ -238,6 +243,8 @@ const AdminDashboard = () => {
     useEffect(() => {
         fetchQuizzes();
         fetchAppSettings();
+        fetchPendingUsers(1);
+        fetchResetRequests(1);
     }, []);
 
     useEffect(() => {
@@ -248,11 +255,13 @@ const AdminDashboard = () => {
         if (activeTab === 'users') {
             if (userSubTab === 'approved') {
                 fetchUsers(usersPage);
-            } else {
+            } else if (userSubTab === 'pending') {
                 fetchPendingUsers(pendingPage);
+            } else {
+                fetchResetRequests(resetRequestsPage);
             }
         }
-    }, [activeTab, userSubTab, usersPage, pendingPage, filterYear, filterDept]);
+    }, [activeTab, userSubTab, usersPage, pendingPage, resetRequestsPage, filterYear, filterDept]);
 
     useEffect(() => {
         // Explicitly release any body scroll lock when switching tabs to ensure quizzes/results are scrollable
@@ -464,6 +473,34 @@ const AdminDashboard = () => {
             fetchPendingUsers(pendingPage);
         } catch (e) {
             alert(e.response?.data?.message || 'Error rejecting student');
+        }
+    };
+    const fetchResetRequests = async (page = 1) => {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?resetPasswordStatus=pending&page=${page}&limit=10`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
+        if (res && res.data) {
+            setResetRequests(res.data.users || []);
+            setResetRequestsPage(res.data.page || 1);
+            setResetRequestsPages(res.data.pages || 1);
+            setResetRequestsTotal(res.data.total || 0);
+        }
+    };
+    const handleApproveReset = async (userId) => {
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/approve-reset`, { userId }, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Password reset approved successfully. The student can now update their password.');
+            fetchResetRequests(resetRequestsPage);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error approving reset');
+        }
+    };
+    const handleRejectReset = async (userId) => {
+        if (!window.confirm('Are you sure you want to reject this password reset request?')) return;
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/reject-reset`, { userId }, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Password reset request cancelled.');
+            fetchResetRequests(resetRequestsPage);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error rejecting reset');
         }
     };
     const fetchAppSettings = async () => {
@@ -1787,6 +1824,18 @@ const AdminDashboard = () => {
                                 </span>
                             )}
                         </button>
+                        <button 
+                            onClick={() => setUserSubTab('resets')} 
+                            className={`btn btn-sm btn-pill ${userSubTab === 'resets' ? 'btn-primary' : 'btn-ghost'}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                            🔑 Reset Requests
+                            {resetRequestsTotal > 0 && (
+                                <span style={{ background: '#f59e0b', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10 }}>
+                                    {resetRequestsTotal}
+                                </span>
+                            )}
+                        </button>
                     </div>
 
                     {userSubTab === 'pending' && (
@@ -1824,7 +1873,7 @@ const AdminDashboard = () => {
                         </div>
                     )}
 
-                    {userSubTab === 'approved' ? (
+                    {userSubTab === 'approved' && (
                         <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                                 <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>Approved Users Directory</h3>
@@ -1879,7 +1928,9 @@ const AdminDashboard = () => {
                             </div>
                             {renderPagination(usersPage, usersPages, setUsersPage)}
                         </>
-                    ) : (
+                    )}
+
+                    {userSubTab === 'pending' && (
                         <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                                 <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>Pending Approval Queue</h3>
@@ -1927,6 +1978,57 @@ const AdminDashboard = () => {
                                 </table>
                             </div>
                             {renderPagination(pendingPage, pendingPages, setPendingPage)}
+                        </>
+                    )}
+
+                    {userSubTab === 'resets' && (
+                        <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>Password Reset Queue</h3>
+                                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{resetRequestsTotal} requests pending approval</span>
+                            </div>
+                            <div style={{ ...neu.card, overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.05)' }}>
+                                            {['#', 'Name', 'Email', 'Register No', 'Year/Dept', 'College', 'Actions'].map(h => (
+                                                <th key={h} style={{ padding: '14px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {resetRequests.map((u, i) => (
+                                            <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                                                <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{((resetRequestsPage - 1) * 10) + i + 1}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        {u.name}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>{u.registerNumber || '—'}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 500 }}>
+                                                    {u.year && u.department ? `${u.year} Year / ${u.department}` : '—'}
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: '#555' }}>
+                                                    {u.college === 'Others' ? u.otherCollegeName || 'Others' : u.college || '—'}
+                                                </td>
+                                                <td style={{ padding: '14px 20px' }}>
+                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                        <NeuButton small variant="success" onClick={() => handleApproveReset(u._id)}>✓ Approve Reset</NeuButton>
+                                                        <NeuButton small variant="danger" onClick={() => handleRejectReset(u._id)}>✕ Cancel Request</NeuButton>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {resetRequests.length === 0 && <tr><td colSpan="7" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No password reset requests pending.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {renderPagination(resetRequestsPage, resetRequestsPages, setResetRequestsPage)}
                         </>
                     )}
                 </div>

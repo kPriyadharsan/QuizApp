@@ -208,7 +208,7 @@ export const getUsers = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
-        const { isApproved, year, department } = req.query;
+        const { isApproved, year, department, resetPasswordStatus } = req.query;
 
         const query = { role: 'user' };
         if (isApproved !== undefined) {
@@ -220,10 +220,13 @@ export const getUsers = async (req, res) => {
         if (department) {
             query.department = department;
         }
+        if (resetPasswordStatus) {
+            query.resetPasswordStatus = resetPasswordStatus;
+        }
 
         const total = await User.countDocuments(query);
         const users = await User.find(query)
-            .select('name email score isBlocked createdAt registerNumber year department college otherCollegeName isApproved')
+            .select('name email score isBlocked createdAt registerNumber year department college otherCollegeName isApproved resetPasswordStatus')
             .skip(skip)
             .limit(limit)
             .sort({ createdAt: -1 })
@@ -266,6 +269,36 @@ export const rejectUser = async (req, res) => {
         res.json({ message: 'User registration request rejected' });
     } catch (error) {
         res.status(500).json({ message: 'Error rejecting user', error: error.message });
+    }
+};
+
+export const approvePasswordReset = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        user.resetPasswordStatus = 'approved';
+        await user.save();
+        res.json({ message: 'Password reset request approved. Student can now change their password.', user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error approving password reset', error: error.message });
+    }
+};
+
+export const rejectPasswordReset = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        user.resetPasswordStatus = 'none';
+        await user.save();
+        res.json({ message: 'Password reset request cancelled', user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error rejecting password reset', error: error.message });
     }
 };
 

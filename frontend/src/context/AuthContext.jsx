@@ -63,9 +63,11 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const register = async (name, email, password, role) => {
+    const register = async (name, email, password, registerNumber, year, department, college, otherCollegeName) => {
         try {
-            const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, { name, email, password, role });
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, { 
+                name, email, password, registerNumber, year, department, college, otherCollegeName 
+            });
             setUser(res.data);
             setIsBlocked(false);
             localStorage.setItem('user', JSON.stringify(res.data));

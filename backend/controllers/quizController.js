@@ -187,7 +187,29 @@ const getUserState = async (quizIdStr, userIdStr) => {
 export const getActiveQuizzes = async (req, res) => {
     try {
         const quizzes = await Quiz.find({ isActive: true }).lean();
-        res.json(quizzes);
+        
+        // Find all attempts of the current user
+        const attempts = await Attempt.find({ userId: req.user.id }).lean();
+        
+        // Map attempts by quizId
+        const attemptsMap = {};
+        attempts.forEach(a => {
+            attemptsMap[a.quizId.toString()] = a;
+        });
+
+        // Add attempt status to each quiz
+        const quizzesWithAttempt = quizzes.map(q => {
+            const attempt = attemptsMap[q._id.toString()];
+            return {
+                ...q,
+                userAttempt: attempt ? {
+                    status: attempt.status,
+                    flagCount: attempt.flagCount || 0
+                } : null
+            };
+        });
+
+        res.json(quizzesWithAttempt);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching quizzes', error: error.message });
     }
@@ -488,6 +510,7 @@ export const startQuiz = async (req, res) => {
             quizId: quiz._id,
             sessionId,
             status: 'IN_PROGRESS',
+            deviceUsed: req.body.deviceUsed || 'Desktop',
             startedAt: now,
             expiresAt,
             lastSeenAt: now,
@@ -761,6 +784,10 @@ export const submitQuiz = async (req, res) => {
 
         let submission;
         try {
+            const now = new Date();
+            const startedAt = attempt.startedAt || now;
+            const timeSpent = Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1000));
+
             submission = await Submission.create({
                 userId: req.user.id,
                 quizId: quiz._id,
@@ -770,7 +797,11 @@ export const submitQuiz = async (req, res) => {
                 tabSwitches: tabSwitches || 0,
                 fullscreenExits: 0,
                 attemptNumber: previousSubmissionsCount + 1,
-                isPreview: attempt.isPreview || false
+                isPreview: attempt.isPreview || false,
+                startedAt,
+                endedAt: now,
+                timeSpent,
+                deviceUsed: attempt.deviceUsed || 'Desktop'
             });
         } catch (err) {
             if (err.code === 11000) {
@@ -844,35 +875,34 @@ export const getLeaderboard = async (req, res) => {
             return res.status(403).json({ message: 'Leaderboard is not published for this quiz yet.' });
         }
 
-        // Optimized Leaderboard query using MongoDB Aggregation
-        const leaderboard = await Submission.aggregate([
-            { $match: { quizId: quiz._id } },
-            // Sort by score first to ensure $first takes the best score per user
-            { $sort: { score: -1, submittedAt: 1 } },
-            { $group: {
-                _id: "$userId",
-                bestScore: { $first: "$score" }
-            }},
-            // Lookup user details
-            { $lookup: {
-                from: "users",
-                localField: "_id",
-                foreignField: "_id",
-                as: "user"
-            }},
-            { $unwind: "$user" },
-            { $match: { "user.role": "user" } },
-            { $project: {
-                _id: 1,
-                name: "$user.name",
-                score: "$bestScore"
-            }},
-            { $sort: { score: -1 } },
-            { $limit: 10 }
-        ]);
+        // Fetch all submissions for this quiz and populate user details
+        const submissions = await Submission.find({ quizId: quiz._id })
+            .populate('userId', 'name role')
+            .lean();
+
+        // Group by user to only keep the best score per user (role: 'user')
+        const bestScoresMap = {};
+        submissions.forEach(sub => {
+            if (!sub.userId || sub.userId.role !== 'user') return;
+            const userIdStr = sub.userId._id.toString();
+            
+            if (!bestScoresMap[userIdStr] || sub.score > bestScoresMap[userIdStr].score) {
+                bestScoresMap[userIdStr] = {
+                    _id: sub.userId._id,
+                    name: sub.userId.name,
+                    score: sub.score
+                };
+            }
+        });
+
+        // Convert map to array, sort by score descending, and limit to top 10
+        const leaderboard = Object.values(bestScoresMap)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10);
 
         res.json(leaderboard);
     } catch (error) {
+        console.error('Error fetching leaderboard:', error);
         res.status(500).json({ message: 'Error fetching leaderboard', error: error.message });
     }
 };

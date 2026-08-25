@@ -10,7 +10,7 @@ const generateToken = (id, role) => {
 };
 
 export const registerUser = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, registerNumber, year, department, college, otherCollegeName } = req.body;
 
     try {
         // Check if registration is open
@@ -33,6 +33,12 @@ export const registerUser = async (req, res) => {
             email,
             password: hashedPassword,
             role: 'user', // Force user role
+            registerNumber,
+            year,
+            department,
+            college,
+            otherCollegeName,
+            isApproved: false
         });
 
         if (user) {
@@ -41,6 +47,12 @@ export const registerUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isApproved: user.isApproved,
+                registerNumber: user.registerNumber,
+                year: user.year,
+                department: user.department,
+                college: user.college,
+                otherCollegeName: user.otherCollegeName,
                 token: generateToken(user._id, user.role),
             });
         } else {
@@ -68,6 +80,12 @@ export const loginUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isApproved: user.isApproved,
+                registerNumber: user.registerNumber,
+                year: user.year,
+                department: user.department,
+                college: user.college,
+                otherCollegeName: user.otherCollegeName,
                 token: generateToken(user._id, user.role),
             });
         } else {
@@ -91,6 +109,12 @@ export const getMe = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isApproved: user.isApproved,
+                registerNumber: user.registerNumber,
+                year: user.year,
+                department: user.department,
+                college: user.college,
+                otherCollegeName: user.otherCollegeName,
             });
         } else {
             res.status(404).json({ message: 'User not found' });

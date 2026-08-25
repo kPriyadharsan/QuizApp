@@ -20,6 +20,11 @@ const attemptSchema = new mongoose.Schema({
         enum: ['CREATED', 'IN_PROGRESS', 'SUBMITTED', 'EXPIRED', 'ABANDONED'], 
         default: 'CREATED' 
     },
+    deviceUsed: {
+        type: String,
+        enum: ['Mobile', 'Tablet', 'Desktop'],
+        default: 'Desktop'
+    },
     startedAt: { 
         type: Date 
     },

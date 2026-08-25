@@ -208,12 +208,25 @@ export const getUsers = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
+        const { isApproved, year, department } = req.query;
 
-        const total = await User.countDocuments({ role: 'user' });
-        const users = await User.find({ role: 'user' })
-            .select('name email score isBlocked createdAt')
+        const query = { role: 'user' };
+        if (isApproved !== undefined) {
+            query.isApproved = isApproved === 'true';
+        }
+        if (year) {
+            query.year = year;
+        }
+        if (department) {
+            query.department = department;
+        }
+
+        const total = await User.countDocuments(query);
+        const users = await User.find(query)
+            .select('name email score isBlocked createdAt registerNumber year department college otherCollegeName isApproved')
             .skip(skip)
             .limit(limit)
+            .sort({ createdAt: -1 })
             .lean();
 
         res.json({
@@ -224,6 +237,35 @@ export const getUsers = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching users', error: error.message });
+    }
+};
+
+export const approveUser = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        user.isApproved = true;
+        await user.save();
+        res.json({ message: 'User approved successfully', user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error approving user', error: error.message });
+    }
+};
+
+export const rejectUser = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        await User.findByIdAndDelete(userId);
+        res.json({ message: 'User registration request rejected' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error rejecting user', error: error.message });
     }
 };
 

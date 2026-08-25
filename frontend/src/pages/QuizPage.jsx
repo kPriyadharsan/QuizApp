@@ -5,6 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowRight } from 'lucide-react';
 import { io } from 'socket.io-client';
 
+const getDeviceUsed = () => {
+    const ua = navigator.userAgent;
+    if (/tablet|ipad|playbook|silk/i.test(ua)) return 'Tablet';
+    if (/mobile|iphone|ipod|android|blackberry|iemobile|opera mini/i.test(ua)) return 'Mobile';
+    return 'Desktop';
+};
+
 /* ── Confetti ─────────────────────────────────────────── */
 const COLORS = ['#6c63ff','#a29bfe','#fd79a8','#fdcb6e','#00b894','#e17055','#74b9ff','#ff7675'];
 const Confetti = () => {
@@ -226,7 +233,8 @@ const QuizPage = () => {
             .then(res => {
                 setQuiz(res.data.quiz);
                 const needsFS = checkFullscreenEnforced(res.data.quiz);
-                if (!needsFS) {
+                const alreadyInFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+                if (!needsFS || alreadyInFS) {
                     setIsFullscreen(true);
                 }
                 if (res.data.status === 'resuming' && res.data.savedState) {
@@ -647,7 +655,11 @@ const QuizPage = () => {
             } else {
                 const searchParams = new URLSearchParams(window.location.search);
                 const isPreview = searchParams.get('preview') === 'true';
-                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/start`, { quizId: quiz?._id || quizCode, isPreview }, { headers: { Authorization: `Bearer ${user.token}` } });
+                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/quiz/start`, { 
+                    quizId: quiz?._id || quizCode, 
+                    isPreview,
+                    deviceUsed: getDeviceUsed()
+                }, { headers: { Authorization: `Bearer ${user.token}` } });
                 setQuestions(res.data.questions);
                 setTimeLeft(Math.max(0, Math.floor((new Date(res.data.expiresAt).getTime() - new Date(res.data.serverTime).getTime()) / 1000)));
                 setAttemptId(res.data.attemptId);

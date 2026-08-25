@@ -93,6 +93,14 @@ const AdminDashboard = () => {
     const [usersPages, setUsersPages] = useState(1);
     const [usersTotal, setUsersTotal] = useState(0);
 
+    const [userSubTab, setUserSubTab] = useState('approved');
+    const [pendingUsers, setPendingUsers] = useState([]);
+    const [pendingPage, setPendingPage] = useState(1);
+    const [pendingPages, setPendingPages] = useState(1);
+    const [pendingTotal, setPendingTotal] = useState(0);
+    const [filterYear, setFilterYear] = useState('');
+    const [filterDept, setFilterDept] = useState('');
+
     const [resultsPage, setResultsPage] = useState(1);
     const [resultsPages, setResultsPages] = useState(1);
     const [resultsTotal, setResultsTotal] = useState(0);
@@ -237,8 +245,14 @@ const AdminDashboard = () => {
     }, [activeTab, resultsPage]);
 
     useEffect(() => {
-        if (activeTab === 'users') fetchUsers(usersPage);
-    }, [activeTab, usersPage]);
+        if (activeTab === 'users') {
+            if (userSubTab === 'approved') {
+                fetchUsers(usersPage);
+            } else {
+                fetchPendingUsers(pendingPage);
+            }
+        }
+    }, [activeTab, userSubTab, usersPage, pendingPage, filterYear, filterDept]);
 
     useEffect(() => {
         // Explicitly release any body scroll lock when switching tabs to ensure quizzes/results are scrollable
@@ -414,12 +428,42 @@ const AdminDashboard = () => {
         }
     };
     const fetchUsers = async (page = 1) => {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?page=${page}&limit=10`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?page=${page}&limit=10&isApproved=true`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
         if (res && res.data) {
             setUsers(res.data.users || []);
             setUsersPage(res.data.page || 1);
             setUsersPages(res.data.pages || 1);
             setUsersTotal(res.data.total || 0);
+        }
+    };
+    const fetchPendingUsers = async (page = 1) => {
+        const query = `page=${page}&limit=10&isApproved=false&year=${filterYear}&department=${filterDept}`;
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?${query}`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
+        if (res && res.data) {
+            setPendingUsers(res.data.users || []);
+            setPendingPage(res.data.page || 1);
+            setPendingPages(res.data.pages || 1);
+            setPendingTotal(res.data.total || 0);
+        }
+    };
+    const handleApproveUser = async (userId) => {
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/approve-user`, { userId }, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Student approved successfully.');
+            fetchPendingUsers(pendingPage);
+            fetchUsers(usersPage);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error approving student');
+        }
+    };
+    const handleRejectUser = async (userId) => {
+        if (!window.confirm('Are you sure you want to reject and delete this student registration request?')) return;
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/reject-user`, { userId }, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Student request rejected and removed.');
+            fetchPendingUsers(pendingPage);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error rejecting student');
         }
     };
     const fetchAppSettings = async () => {
@@ -1724,56 +1768,167 @@ const AdminDashboard = () => {
             {/* ── USERS TAB ── */}
             {activeTab === 'users' && (
                 <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <h3 style={{ fontWeight: 700, fontSize: 16 }}>All Users</h3>
-                        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{usersTotal} users registered</span>
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 12 }}>
+                        <button 
+                            onClick={() => setUserSubTab('approved')} 
+                            className={`btn btn-sm btn-pill ${userSubTab === 'approved' ? 'btn-primary' : 'btn-ghost'}`}
+                        >
+                            📋 Approved Students
+                        </button>
+                        <button 
+                            onClick={() => setUserSubTab('pending')} 
+                            className={`btn btn-sm btn-pill ${userSubTab === 'pending' ? 'btn-primary' : 'btn-ghost'}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                            ⏳ Requested Students 
+                            {pendingTotal > 0 && (
+                                <span style={{ background: '#ff3b30', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10 }}>
+                                    {pendingTotal}
+                                </span>
+                            )}
+                        </button>
                     </div>
-                    <div style={{ ...neu.card, overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                            <thead>
-                                <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.05)' }}>
-                                    {['#', 'Name', 'Email', 'Role', 'Status', 'Action'].map(h => (
-                                        <th key={h} style={{ padding: '14px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map((u, i) => (
-                                    <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', background: u.isBlocked ? 'rgba(255,69,58,0.02)' : 'transparent' }}>
-                                        <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{i + 1}</td>
-                                        <td style={{ padding: '14px 20px', fontWeight: 600 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent), #a29bfe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                                                    {u.name?.charAt(0).toUpperCase()}
-                                                </div>
-                                                {u.name}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
-                                        <td style={{ padding: '14px 20px' }}>
-                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 100, background: u.role === 'admin' ? 'rgba(108,99,255,0.1)' : 'rgba(0,0,0,0.06)', color: u.role === 'admin' ? 'var(--brand-accent)' : '#888' }}>
-                                                {u.role}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '14px 20px' }}>
-                                            {u.isBlocked
-                                                ? <span style={{ color: '#cc000a', fontWeight: 700, fontSize: 12 }}>🚫 Blocked</span>
-                                                : <span style={{ color: '#1a7a3a', fontWeight: 600, fontSize: 12 }}>✓ Active</span>}
-                                        </td>
-                                        <td style={{ padding: '14px 20px' }}>
-                                            {u.role !== 'admin' && (
-                                                u.isBlocked
-                                                    ? <NeuButton small variant="success" onClick={() => handleUnblockUser(u._id)}>Unblock</NeuButton>
-                                                    : <NeuButton small variant="danger" onClick={() => handleBlockUser(u._id)}>Block</NeuButton>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {users.length === 0 && <tr><td colSpan="6" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No users registered yet.</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
-                    {renderPagination(usersPage, usersPages, setUsersPage)}
+
+                    {userSubTab === 'pending' && (
+                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Filter Year</label>
+                                <select 
+                                    value={filterYear} 
+                                    onChange={e => { setFilterYear(e.target.value); setPendingPage(1); }}
+                                    style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: 'white', fontSize: 13, outline: 'none' }}
+                                >
+                                    <option value="">All Years</option>
+                                    <option value="I">I Year</option>
+                                    <option value="II">II Year</option>
+                                    <option value="III">III Year</option>
+                                    <option value="IV">IV Year</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Filter Department</label>
+                                <select 
+                                    value={filterDept} 
+                                    onChange={e => { setFilterDept(e.target.value); setPendingPage(1); }}
+                                    style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: 'white', fontSize: 13, outline: 'none' }}
+                                >
+                                    <option value="">All Departments</option>
+                                    <option value="ECE">ECE</option>
+                                    <option value="EEE">EEE</option>
+                                    <option value="CSE">CSE</option>
+                                    <option value="IT">IT</option>
+                                    <option value="AIDS">AIDS</option>
+                                    <option value="BME">BME</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
+                    {userSubTab === 'approved' ? (
+                        <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>Approved Users Directory</h3>
+                                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{usersTotal} users registered</span>
+                            </div>
+                            <div style={{ ...neu.card, overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.05)' }}>
+                                            {['#', 'Name', 'Email', 'Register No', 'Year/Dept', 'College', 'Status', 'Action'].map(h => (
+                                                <th key={h} style={{ padding: '14px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {users.map((u, i) => (
+                                            <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', background: u.isBlocked ? 'rgba(255,69,58,0.02)' : 'transparent' }}>
+                                                <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{((usersPage - 1) * 10) + i + 1}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent), #a29bfe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        {u.name}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>{u.registerNumber || '—'}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 500 }}>
+                                                    {u.year && u.department ? `${u.year} Year / ${u.department}` : '—'}
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: '#555' }}>
+                                                    {u.college === 'Others' ? u.otherCollegeName || 'Others' : u.college || '—'}
+                                                </td>
+                                                <td style={{ padding: '14px 20px' }}>
+                                                    {u.isBlocked
+                                                        ? <span style={{ color: '#cc000a', fontWeight: 700, fontSize: 12 }}>🚫 Blocked</span>
+                                                        : <span style={{ color: '#1a7a3a', fontWeight: 600, fontSize: 12 }}>✓ Active</span>}
+                                                </td>
+                                                <td style={{ padding: '14px 20px' }}>
+                                                    {u.role !== 'admin' && (
+                                                        u.isBlocked
+                                                            ? <NeuButton small variant="success" onClick={() => handleUnblockUser(u._id)}>Unblock</NeuButton>
+                                                            : <NeuButton small variant="danger" onClick={() => handleBlockUser(u._id)}>Block</NeuButton>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {users.length === 0 && <tr><td colSpan="8" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No users registered yet.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {renderPagination(usersPage, usersPages, setUsersPage)}
+                        </>
+                    ) : (
+                        <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>Pending Approval Queue</h3>
+                                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{pendingTotal} verification requests</span>
+                            </div>
+                            <div style={{ ...neu.card, overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.05)' }}>
+                                            {['#', 'Name', 'Email', 'Register No', 'Year/Dept', 'College', 'Actions'].map(h => (
+                                                <th key={h} style={{ padding: '14px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pendingUsers.map((u, i) => (
+                                            <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                                                <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{((pendingPage - 1) * 10) + i + 1}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        {u.name}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>{u.registerNumber || '—'}</td>
+                                                <td style={{ padding: '14px 20px', fontWeight: 500 }}>
+                                                    {u.year && u.department ? `${u.year} Year / ${u.department}` : '—'}
+                                                </td>
+                                                <td style={{ padding: '14px 20px', color: '#555' }}>
+                                                    {u.college === 'Others' ? u.otherCollegeName || 'Others' : u.college || '—'}
+                                                </td>
+                                                <td style={{ padding: '14px 20px' }}>
+                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                        <NeuButton small variant="success" onClick={() => handleApproveUser(u._id)}>✓ Approve</NeuButton>
+                                                        <NeuButton small variant="danger" onClick={() => handleRejectUser(u._id)}>✕ Reject</NeuButton>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {pendingUsers.length === 0 && <tr><td colSpan="7" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No pending validation requests.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {renderPagination(pendingPage, pendingPages, setPendingPage)}
+                        </>
+                    )}
                 </div>
             )}
             <ImportQuestionsModal 

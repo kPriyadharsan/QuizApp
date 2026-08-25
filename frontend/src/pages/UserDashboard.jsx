@@ -5,6 +5,36 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowRight, KeyRound, Clock, CalendarDays, Activity, Medal, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const triggerFullscreen = async () => {
+    // Check if fullscreen API is supported at all
+    const hasFS = typeof document !== 'undefined' && 
+                  !!(document.documentElement.requestFullscreen || 
+                     document.documentElement.webkitRequestFullscreen || 
+                     document.documentElement.mozRequestFullScreen || 
+                     document.documentElement.msRequestFullscreen);
+    if (!hasFS) return;
+
+    const el = document.documentElement;
+    const req = el.requestFullscreen || 
+                el.webkitRequestFullscreen || 
+                el.mozRequestFullScreen || 
+                el.msRequestFullscreen;
+    if (req) {
+        try {
+            await req.call(el);
+        } catch (err) {
+            console.warn("Fullscreen request failed", err);
+            const reqBody = document.body.requestFullscreen || 
+                            document.body.webkitRequestFullscreen || 
+                            document.body.mozRequestFullScreen || 
+                            document.body.msRequestFullscreen;
+            if (reqBody) {
+                try { await reqBody.call(document.body); } catch(e) {}
+            }
+        }
+    }
+};
+
 const UserDashboard = () => {
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -30,6 +60,7 @@ const UserDashboard = () => {
                 { quizCode: joinCode },
                 { headers: { Authorization: `Bearer ${user.token}` } }
             );
+            await triggerFullscreen();
             navigate(`/quiz/${joinCode.toUpperCase().trim()}`);
         } catch (err) {
             setJoinError(err.response?.data?.message || 'Invalid code or quiz not available.');
@@ -257,12 +288,35 @@ const UserDashboard = () => {
                                                     <CalendarDays size={16} /> {ti.text}
                                                 </div>
                                             )}
-                                        </div>
-
-                                        <div style={{ marginTop: 'auto' }}>
-                                            {isActive ? (
+                                                                             <div style={{ marginTop: 'auto' }}>
+                                            {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
                                                 <button 
-                                                    onClick={() => navigate(`/quiz/${quiz.quizCode}`)}
+                                                    disabled
+                                                    style={{ 
+                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#fee2e2', 
+                                                        color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', fontWeight: 700, fontSize: 14,
+                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                                    }}
+                                                >
+                                                    ❌ Flagged / Evicted
+                                                </button>
+                                            ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
+                                                <button 
+                                                    disabled
+                                                    style={{ 
+                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#f0fdf4', 
+                                                        color: '#15803d', border: '1px solid rgba(21,128,61,0.15)', fontWeight: 700, fontSize: 14,
+                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                                    }}
+                                                >
+                                                    ✓ Completed
+                                                </button>
+                                            ) : isActive ? (
+                                                <button 
+                                                    onClick={async () => {
+                                                        await triggerFullscreen();
+                                                        navigate(`/quiz/${quiz.quizCode}`);
+                                                    }}
                                                     style={{ 
                                                         width: '100%', padding: '14px', borderRadius: 14, background: '#6c63ff', 
                                                         color: 'white', border: 'none', fontWeight: 700, fontSize: 14,
@@ -272,7 +326,7 @@ const UserDashboard = () => {
                                                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#5b52e6'; }}
                                                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#6c63ff'; }}
                                                 >
-                                                    Start Quiz <ArrowRight size={16} strokeWidth={2.5} />
+                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={16} strokeWidth={2.5} />
                                                 </button>
                                             ) : (
                                                 <button 
@@ -286,7 +340,7 @@ const UserDashboard = () => {
                                                     Locked (Upcoming)
                                                 </button>
                                             )}
-                                        </div>
+                                        </div>       </div>
                                     </motion.div>
                                 );
                             })}

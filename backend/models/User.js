@@ -6,7 +6,20 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     score: { type: Number, default: 0 },
-    isBlocked: { type: Boolean, default: false }
+    isBlocked: { type: Boolean, default: false },
+    registerNumber: { type: String },
+    year: { type: String, enum: ['I', 'II', 'III', 'IV'] },
+    department: { type: String, enum: ['ECE', 'EEE', 'CSE', 'IT', 'AIDS', 'BME'] },
+    college: { type: String, enum: ['SVHEC', 'Others'] },
+    otherCollegeName: { type: String },
+    isApproved: { type: Boolean, default: false }
 }, { timestamps: true });
+
+userSchema.pre('save', function(next) {
+    if (this.role === 'admin') {
+        this.isApproved = true;
+    }
+    next();
+});
 
 export default mongoose.model('User', userSchema);

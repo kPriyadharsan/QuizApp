@@ -60,12 +60,17 @@ const Auth = () => {
     const [loginLoading, setLoginLoading] = useState(false);
 
     /* sign-up */
-    const [regName, setRegName]           = useState('');
-    const [regEmail, setRegEmail]         = useState('');
-    const [regPass, setRegPass]           = useState('');
-    const [showRegPw, setShowRegPw]       = useState(false);
-    const [regError, setRegError]         = useState('');
-    const [regLoading, setRegLoading]     = useState(false);
+    const [regName, setRegName]                     = useState('');
+    const [regEmail, setRegEmail]                   = useState('');
+    const [regPass, setRegPass]                     = useState('');
+    const [showRegPw, setShowRegPw]                 = useState(false);
+    const [regRegisterNumber, setRegRegisterNumber] = useState('');
+    const [regYear, setRegYear]                     = useState('');
+    const [regDepartment, setRegDepartment]         = useState('');
+    const [regCollege, setRegCollege]               = useState('SVHEC');
+    const [regOtherCollegeName, setRegOtherCollegeName] = useState('');
+    const [regError, setRegError]                   = useState('');
+    const [regLoading, setRegLoading]               = useState(false);
 
     /* registration gate */
     const [regOpen, setRegOpen]           = useState(true);
@@ -96,8 +101,30 @@ const Auth = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         setRegError('');
+
+        if (!regRegisterNumber.trim()) {
+            setRegError('Register number is required');
+            return;
+        }
+        if (!regYear) {
+            setRegError('Please select your year');
+            return;
+        }
+        if (!regDepartment) {
+            setRegError('Please select your department');
+            return;
+        }
+        if (regCollege === 'Others' && !regOtherCollegeName.trim()) {
+            setRegError('Please enter your college name');
+            return;
+        }
+
         setRegLoading(true);
-        const res = await register(regName, regEmail, regPass, 'user');
+        const res = await register(
+            regName, regEmail, regPass, 
+            regRegisterNumber.trim(), regYear, regDepartment, regCollege, 
+            regCollege === 'Others' ? regOtherCollegeName.trim() : ''
+        );
         if (!res.success) {
             setRegError(res.message || 'Registration failed');
         } else {
@@ -169,7 +196,7 @@ const Auth = () => {
                 </div>
 
                 {/* ════════════════ SIGN-UP FORM ════════════════ */}
-                <div className="form-panel signup">
+                <div className="form-panel signup" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', overflowY: 'auto', paddingTop: '40px', paddingBottom: '40px' }}>
                     <div className="form-inner">
                         {!checkingReg && !regOpen ? (
                             /* registration closed state */
@@ -222,6 +249,83 @@ const Auth = () => {
                                         showPw={showRegPw}
                                         onToggle={() => setShowRegPw(v => !v)}
                                     />
+                                    <Field
+                                        id="reg-register-number"
+                                        label="Register Number"
+                                        type="text"
+                                        value={regRegisterNumber}
+                                        onChange={e => setRegRegisterNumber(e.target.value)}
+                                    />
+
+                                    <div className="saas-field">
+                                        <label className="saas-label" htmlFor="reg-year">Year</label>
+                                        <div className="saas-input-wrap">
+                                            <select
+                                                id="reg-year"
+                                                className="saas-input"
+                                                value={regYear}
+                                                onChange={e => setRegYear(e.target.value)}
+                                                style={{ cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto', background: '#1a2235', color: '#ffffff' }}
+                                                required
+                                            >
+                                                <option value="" disabled>Select Year</option>
+                                                <option value="I">I Year</option>
+                                                <option value="II">II Year</option>
+                                                <option value="III">III Year</option>
+                                                <option value="IV">IV Year</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="saas-field">
+                                        <label className="saas-label" htmlFor="reg-department">Department</label>
+                                        <div className="saas-input-wrap">
+                                            <select
+                                                id="reg-department"
+                                                className="saas-input"
+                                                value={regDepartment}
+                                                onChange={e => setRegDepartment(e.target.value)}
+                                                style={{ cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto', background: '#1a2235', color: '#ffffff' }}
+                                                required
+                                            >
+                                                <option value="" disabled>Select Department</option>
+                                                <option value="ECE">ECE (Electronics & Communication)</option>
+                                                <option value="EEE">EEE (Electrical & Electronics)</option>
+                                                <option value="CSE">CSE (Computer Science & Eng)</option>
+                                                <option value="IT">IT (Information Technology)</option>
+                                                <option value="AIDS">AIDS (AI & Data Science)</option>
+                                                <option value="BME">BME (Biomedical Engineering)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="saas-field">
+                                        <label className="saas-label" htmlFor="reg-college">College</label>
+                                        <div className="saas-input-wrap">
+                                            <select
+                                                id="reg-college"
+                                                className="saas-input"
+                                                value={regCollege}
+                                                onChange={e => setRegCollege(e.target.value)}
+                                                style={{ cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto', background: '#1a2235', color: '#ffffff' }}
+                                                required
+                                            >
+                                                <option value="SVHEC">SVHEC</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {regCollege === 'Others' && (
+                                        <Field
+                                            id="reg-other-college"
+                                            label="College Name"
+                                            type="text"
+                                            value={regOtherCollegeName}
+                                            onChange={e => setRegOtherCollegeName(e.target.value)}
+                                            placeholder="Enter your college name"
+                                        />
+                                    )}
                                     <button className="submit-button" type="submit" disabled={regLoading}>
                                         {regLoading ? 'Creating account…' : 'Create account'}
                                     </button>

@@ -71,6 +71,24 @@ const BlockedScreen = () => {
   );
 };
 
+const PendingApprovalScreen = () => {
+  const { logout } = useAuth();
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--color-bg)' }}>
+      <div className="card anim-up" style={{ maxWidth: 400, width: '100%', padding: '48px 32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}>
+        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(108,99,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <span style={{ fontSize: 32 }}>⏳</span>
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--brand-accent)', marginBottom: 12 }}>Pending Approval</h2>
+        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 28, fontSize: 14.5, lineHeight: 1.6 }}>
+          Your student registration request is currently pending administrative validation. You will gain access as soon as your account is approved.
+        </p>
+        <button className="btn btn-primary btn-full" onClick={logout} style={{ fontSize: 15, padding: 14 }}>Sign Out</button>
+      </div>
+    </div>
+  );
+};
+
 import { Menu, X } from 'lucide-react';
 
 /* ── Header ─────────────────────────────────────────── */
@@ -215,6 +233,7 @@ const Header = () => {
 const AppRoutes = () => {
   const { user, isBlocked } = useAuth();
   if (user && isBlocked && user.role !== 'admin') return <BlockedScreen />;
+  if (user && user.role === 'user' && !user.isApproved) return <PendingApprovalScreen />;
   return (
     <Routes>
       <Route path="/login"    element={user ? <Navigate to="/" replace /> : <Login />} />

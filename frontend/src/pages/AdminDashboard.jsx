@@ -74,8 +74,8 @@ const toLocalInputValue = (date) => {
 };
 
 const TABS = [
-    { id: 'quizzes', label: '📋 Quiz List' },
     { id: 'create-quiz', label: '＋ Create Quiz' },
+    { id: 'quizzes', label: '📋 Quiz List' },
     { id: 'questions', label: '❓ Questions' },
     { id: 'results', label: '📊 Results' },
     { id: 'users', label: '👥 Users' },
@@ -83,7 +83,7 @@ const TABS = [
 
 const AdminDashboard = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('quizzes');
+    const [activeTab, setActiveTab] = useState('create-quiz');
     const [quizzes, setQuizzes] = useState([]);
     const [results, setResults] = useState([]);
     const [users, setUsers] = useState([]);

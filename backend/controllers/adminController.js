@@ -14,7 +14,7 @@ import { extractAmbiguousSectionsWithAI } from '../services/aiService.js';
 
 const isQuizLocked = (quiz) => {
     if (!quiz) return false;
-    return quiz.status === 'LIVE' || quiz.status === 'COMPLETED' || new Date().getTime() >= new Date(quiz.startTime).getTime();
+    return quiz.status === 'LIVE' || quiz.status === 'COMPLETED';
 };
 
 // Helper to get or create settings
@@ -538,22 +538,45 @@ export const updateQuiz = async (req, res) => {
         // Enforce lock check on Live/Completed or started quizzes
         const isLocked = isQuizLocked(quiz);
         const criticalFields = [
-            'startTime', 'duration', 'randomizeQuestions', 'randomizeOptions',
-            'numberOfQuestions', 'allowQuestionNavigation', 'allowAnswerChange',
-            'marksPerQuestion', 'negativeMarkingEnabled', 'negativeMarks',
-            'oneAttemptOnly', 'singleActiveSession', 'fullscreenRequired', 'tabSwitchMonitoring'
+            'startTime', 'duration', 'randomizeQuestions', 'randomizeOptions', 'numberOfQuestions'
         ];
 
         if (isLocked) {
             for (const field of criticalFields) {
-                if (req.body[field] !== undefined && req.body[field] !== quiz[field]) {
-                    // Normalize Date string comparison for startTime
-                    if (field === 'startTime') {
-                        if (new Date(req.body.startTime).getTime() === new Date(quiz.startTime).getTime()) {
-                            continue;
+                if (req.body[field] !== undefined) {
+                    const bodyVal = req.body[field];
+                    let dbVal = quiz[field];
+                    
+                    // Resolve database value fallbacks to match schema default values
+                    if (dbVal === undefined || dbVal === null) {
+                        if (['allowQuestionNavigation', 'allowAnswerChange', 'oneAttemptOnly', 'singleActiveSession'].includes(field)) {
+                            dbVal = true;
+                        } else if (field === 'marksPerQuestion') {
+                            dbVal = 1;
+                        } else if (field === 'duration') {
+                            dbVal = 30;
+                        } else {
+                            dbVal = 0; // standard default for other numbers (numberOfQuestions, negativeMarks) and booleans
                         }
                     }
-                    return res.status(400).json({ message: `Settings locked: Cannot modify critical field '${field}' once the quiz has started.` });
+
+                    if (field === 'startTime') {
+                        if (new Date(bodyVal).getTime() !== new Date(dbVal).getTime()) {
+                            return res.status(400).json({ message: `Settings locked: Cannot modify critical field 'startTime' once the quiz has started.` });
+                        }
+                    } else if (typeof bodyVal === 'boolean') {
+                        if (!!bodyVal !== !!dbVal) {
+                            return res.status(400).json({ message: `Settings locked: Cannot modify critical field '${field}' once the quiz has started.` });
+                        }
+                    } else if (typeof bodyVal === 'number') {
+                        if (Number(bodyVal) !== Number(dbVal)) {
+                            return res.status(400).json({ message: `Settings locked: Cannot modify critical field '${field}' once the quiz has started.` });
+                        }
+                    } else {
+                        if (bodyVal !== dbVal) {
+                            return res.status(400).json({ message: `Settings locked: Cannot modify critical field '${field}' once the quiz has started.` });
+                        }
+                    }
                 }
             }
         }

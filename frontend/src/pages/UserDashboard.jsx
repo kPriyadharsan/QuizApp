@@ -121,68 +121,51 @@ const UserDashboard = () => {
                 </div>
             </motion.div>
 
-            {/* Search & Quick Join Card */}
-            <motion.div variants={itemVariants} style={{ marginBottom: 48 }}>
-                <div style={{
-                    position: 'relative', borderRadius: 'min(28px, 6vw)', overflow: 'hidden',
-                    background: 'white', border: '1px solid rgba(0,0,0,0.04)',
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.02)',
-                }}>
-                    <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '50%', height: '200%', background: 'radial-gradient(circle, rgba(108,99,255,0.06) 0%, rgba(255,255,255,0) 70%)', pointerEvents: 'none' }} />
-                    
-                    <div style={{ position: 'relative', padding: 'clamp(20px, 6vw, 48px)', zIndex: 1 }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(108,99,255,0.1)', color: '#6c63ff', borderRadius: 100, fontWeight: 700, fontSize: 12, marginBottom: 16 }}>
-                            🔍 Search or Join
-                        </div>
-                        <h2 style={{ fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 10, color: '#111' }}>
-                            Find Your Quiz
-                        </h2>
-                        <p style={{ color: '#666', fontSize: 'clamp(14px, 2vw, 16px)', lineHeight: 1.5, marginBottom: 24, maxWidth: 440 }}>
-                            Search live quizzes by title, or enter a unique private quiz code to join directly.
-                        </p>
-                        
-                        <form onSubmit={handleJoin} style={{ display: 'flex', gap: 12, maxWidth: 500, flexWrap: 'wrap' }}>
-                            <div style={{ flex: '2 1 240px', minWidth: 0 }}>
-                                <input
-                                    type="text"
-                                    placeholder="Enter quiz title or code..."
-                                    value={joinCode}
-                                    onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
-                                    style={{
-                                        width: '100%', padding: '16px 20px', fontSize: 16, fontWeight: 600,
-                                        color: '#111', background: '#f8f9fa',
-                                        border: joinError ? '2px solid rgba(255,59,48,0.5)' : '2px solid transparent',
-                                        borderRadius: 16, outline: 'none', transition: 'all 0.2s',
-                                        textTransform: 'uppercase'
-                                    }}
-                                    onFocus={(e) => { if(!joinError) e.target.style.border = '2px solid rgba(108,99,255,0.3)'; e.target.style.background = 'white'; e.target.style.boxShadow = '0 0 0 4px rgba(108,99,255,0.08)'; }}
-                                    onBlur={(e) => { if(!joinError) e.target.style.border = '2px solid transparent'; e.target.style.background = '#f8f9fa'; e.target.style.boxShadow = 'none'; }}
-                                />
-                            </div>
-                            {joinCode.trim() && (
-                                <button 
-                                    type="submit" 
-                                    disabled={joining} 
-                                    style={{
-                                        flex: '1 1 120px', padding: '16px 28px', borderRadius: 16, border: 'none',
-                                        background: joining ? '#e2e2ea' : '#6c63ff',
-                                        color: joining ? '#a0a0ab' : 'white',
-                                        fontWeight: 700, fontSize: 16, cursor: joining ? 'not-allowed' : 'pointer',
-                                        transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        boxShadow: joining ? 'none' : '0 8px 16px rgba(108,99,255,0.15)'
-                                    }}
-                                >
-                                    {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={18} strokeWidth={3} />
-                                </button>
-                            )}
-                        </form>
-                        {joinError && (
-                            <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#ff3b30', fontSize: 14, fontWeight: 500, marginTop: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 16 }}>⚠</span> {joinError}
-                            </motion.p>
-                        )}
+            {/* Simplified Search & Join Bar */}
+            <motion.div variants={itemVariants} style={{ marginBottom: 32 }}>
+                <form onSubmit={handleJoin} style={{ display: 'flex', gap: 12, maxWidth: 600, width: '100%', alignItems: 'center' }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Search quizzes by title or enter private code..."
+                            value={joinCode}
+                            onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
+                            style={{
+                                width: '100%', padding: '14px 20px 14px 44px', fontSize: 14, fontWeight: 600,
+                                color: '#111', background: 'white',
+                                border: joinError ? '2px solid rgba(255,59,48,0.5)' : '1px solid rgba(0,0,0,0.08)',
+                                borderRadius: 16, outline: 'none', transition: 'all 0.2s',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                            }}
+                            onFocus={(e) => { if(!joinError) e.target.style.borderColor = '#6c63ff'; e.target.style.boxShadow = '0 0 0 4px rgba(108,99,255,0.08)'; }}
+                            onBlur={(e) => { if(!joinError) e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)'; }}
+                        />
+                        <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 16, opacity: 0.6, pointerEvents: 'none' }}>
+                            🔍
+                        </span>
                     </div>
-                </div>
+                    {joinCode.trim() && (
+                        <button 
+                            type="submit" 
+                            disabled={joining} 
+                            style={{
+                                padding: '14px 24px', borderRadius: 16, border: 'none',
+                                background: joining ? '#e2e2ea' : '#6c63ff',
+                                color: joining ? '#a0a0ab' : 'white',
+                                fontWeight: 700, fontSize: 14, cursor: joining ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6,
+                                boxShadow: joining ? 'none' : '0 8px 16px rgba(108,99,255,0.15)'
+                            }}
+                        >
+                            {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={16} strokeWidth={3} />
+                        </button>
+                    )}
+                </form>
+                {joinError && (
+                    <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#ff3b30', fontSize: 13, fontWeight: 600, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span>⚠️</span> {joinError}
+                    </motion.p>
+                )}
             </motion.div>
 
             {/* Active Quizzes Grid */}

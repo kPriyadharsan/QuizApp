@@ -16,11 +16,10 @@ const userSchema = new mongoose.Schema({
     resetPasswordStatus: { type: String, enum: ['none', 'pending', 'approved'], default: 'none' }
 }, { timestamps: true });
 
-userSchema.pre('save', function(next) {
+userSchema.pre('save', async function() {
     if (this.role === 'admin') {
         this.isApproved = true;
     }
-    next();
 });
 
 export default mongoose.model('User', userSchema);

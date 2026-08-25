@@ -131,7 +131,10 @@ export const requestPasswordReset = async (req, res) => {
         if (!email || !registerNumber) {
             return res.status(400).json({ message: 'Email and Register Number are required' });
         }
-        const user = await User.findOne({ email: email.trim().toLowerCase(), registerNumber: registerNumber.trim() });
+        const user = await User.findOne({ 
+            email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }, 
+            registerNumber: { $regex: new RegExp(`^${registerNumber.trim()}$`, 'i') } 
+        });
         if (!user) {
             return res.status(404).json({ message: 'No student matches this email and register number' });
         }
@@ -152,7 +155,10 @@ export const resetPassword = async (req, res) => {
         if (!email || !registerNumber || !newPassword) {
             return res.status(400).json({ message: 'All fields are required' });
         }
-        const user = await User.findOne({ email: email.trim().toLowerCase(), registerNumber: registerNumber.trim() });
+        const user = await User.findOne({ 
+            email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }, 
+            registerNumber: { $regex: new RegExp(`^${registerNumber.trim()}$`, 'i') } 
+        });
         if (!user) {
             return res.status(404).json({ message: 'No student matches this email and register number' });
         }

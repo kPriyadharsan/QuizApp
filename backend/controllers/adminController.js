@@ -254,38 +254,25 @@ export const restartQuizAttempt = async (req, res) => {
         await Attempt.deleteMany({ userId, quizId });
         await QuizState.deleteMany({ userId, quizId });
 
-        // Fetch User and increment allowed attempts for this quiz
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
         // Find how many submissions the user already has
         const submissionCount = await Submission.countDocuments({ userId, quizId });
 
-        // Initialize allowedQuizzesAttempts map if not present
-        if (!user.allowedQuizzesAttempts) {
-            user.allowedQuizzesAttempts = new Map();
-        }
+        // Update allowedQuizzesAttempts directly via MongoDB $set to bypass validations
+        const updateResult = await User.updateOne(
+            { _id: userId },
+            { $set: { [`allowedQuizzesAttempts.${quizId.toString()}`]: submissionCount + 1 } }
+        );
 
-        // Set allowed attempts to current submissions + 1
-        if (user.allowedQuizzesAttempts instanceof Map) {
-            user.allowedQuizzesAttempts.set(quizId.toString(), submissionCount + 1);
-        } else {
-            user.allowedQuizzesAttempts = {
-                ...user.allowedQuizzesAttempts,
-                [quizId.toString()]: submissionCount + 1
-            };
+        if (updateResult.matchedCount === 0) {
+            return res.status(404).json({ message: 'User not found' });
         }
-        
-        user.markModified('allowedQuizzesAttempts');
-        await user.save();
 
         res.json({ 
             message: 'Quiz attempt reset successfully. The student can now retake the quiz.',
             allowedAttempts: submissionCount + 1
         });
     } catch (error) {
+        console.error("❌ Error in restartQuizAttempt:", error);
         res.status(500).json({ message: 'Error resetting quiz attempt', error: error.message });
     }
 };

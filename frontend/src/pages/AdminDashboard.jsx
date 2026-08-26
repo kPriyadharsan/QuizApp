@@ -112,6 +112,9 @@ const AdminDashboard = () => {
     const [resultsSortField, setResultsSortField] = useState('submittedAt');
     const [resultsSortOrder, setResultsSortOrder] = useState('desc');
     const [selectedQuizFilter, setSelectedQuizFilter] = useState('all');
+    const [resultsFilterDept, setResultsFilterDept] = useState('all');
+    const [resultsFilterYear, setResultsFilterYear] = useState('all');
+    const [resultsFilterAttendance, setResultsFilterAttendance] = useState('all');
 
     const [isFormatterOpen, setIsFormatterOpen] = useState(false);
     const [formatterFilterDept, setFormatterFilterDept] = useState('');
@@ -270,8 +273,8 @@ const AdminDashboard = () => {
     }, []);
 
     useEffect(() => {
-        if (activeTab === 'results') fetchResults(resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter);
-    }, [activeTab, resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter]);
+        if (activeTab === 'results') fetchResults(resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter, resultsFilterDept, resultsFilterYear, resultsFilterAttendance);
+    }, [activeTab, resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter, resultsFilterDept, resultsFilterYear, resultsFilterAttendance]);
 
     useEffect(() => {
         if (activeTab === 'users') {
@@ -449,10 +452,27 @@ const AdminDashboard = () => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/all-quizzes`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
         if (res) { setQuizzes(res.data); if (res.data.length > 0 && !selectedQuizId) setSelectedQuizId(res.data[0]._id); }
     };
-    const fetchResults = async (page = 1, sortField = resultsSortField, sortOrder = resultsSortOrder, quizFilter = selectedQuizFilter) => {
+    const fetchResults = async (
+        page = 1, 
+        sortField = resultsSortField, 
+        sortOrder = resultsSortOrder, 
+        quizFilter = selectedQuizFilter,
+        dept = resultsFilterDept,
+        yr = resultsFilterYear,
+        att = resultsFilterAttendance
+    ) => {
         let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=${page}&limit=10&sortField=${sortField}&sortOrder=${sortOrder}`;
         if (quizFilter && quizFilter !== 'all') {
             url += `&quizId=${quizFilter}`;
+        }
+        if (dept && dept !== 'all') {
+            url += `&department=${dept}`;
+        }
+        if (yr && yr !== 'all') {
+            url += `&year=${yr}`;
+        }
+        if (att && att !== 'all') {
+            url += `&attendanceStatus=${att}`;
         }
         const res = await axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
         if (res && res.data) {
@@ -470,12 +490,27 @@ const AdminDashboard = () => {
         }
         setResultsSortField(field);
         setResultsSortOrder(nextOrder);
-        fetchResults(1, field, nextOrder, selectedQuizFilter);
+        fetchResults(1, field, nextOrder, selectedQuizFilter, resultsFilterDept, resultsFilterYear, resultsFilterAttendance);
     };
 
     const handleQuizFilterChange = (quizId) => {
         setSelectedQuizFilter(quizId);
-        fetchResults(1, resultsSortField, resultsSortOrder, quizId);
+        fetchResults(1, resultsSortField, resultsSortOrder, quizId, resultsFilterDept, resultsFilterYear, resultsFilterAttendance);
+    };
+
+    const handleResultsDeptChange = (dept) => {
+        setResultsFilterDept(dept);
+        fetchResults(1, resultsSortField, resultsSortOrder, selectedQuizFilter, dept, resultsFilterYear, resultsFilterAttendance);
+    };
+
+    const handleResultsYearChange = (yr) => {
+        setResultsFilterYear(yr);
+        fetchResults(1, resultsSortField, resultsSortOrder, selectedQuizFilter, resultsFilterDept, yr, resultsFilterAttendance);
+    };
+
+    const handleResultsAttendanceChange = (att) => {
+        setResultsFilterAttendance(att);
+        fetchResults(1, resultsSortField, resultsSortOrder, selectedQuizFilter, resultsFilterDept, resultsFilterYear, att);
     };
 
     const handleRestartTest = async (sub) => {
@@ -494,9 +529,10 @@ const AdminDashboard = () => {
 
     const triggerFormatterExport = (format) => {
         let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000`;
-        if (selectedQuizFilter !== 'all') {
-            url += `&quizId=${selectedQuizFilter}`;
-        }
+        if (selectedQuizFilter !== 'all') url += `&quizId=${selectedQuizFilter}`;
+        if (resultsFilterDept !== 'all') url += `&department=${resultsFilterDept}`;
+        if (resultsFilterYear !== 'all') url += `&year=${resultsFilterYear}`;
+        if (resultsFilterAttendance !== 'all') url += `&attendanceStatus=${resultsFilterAttendance}`;
         
         axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
             .then(res => {
@@ -504,14 +540,6 @@ const AdminDashboard = () => {
                 
                 // Get all matching submissions
                 let list = [...res.data.submissions];
-                
-                // Apply custom filters
-                if (formatterFilterDept) {
-                    list = list.filter(s => s.userId?.department === formatterFilterDept);
-                }
-                if (formatterFilterYear) {
-                    list = list.filter(s => s.userId?.year === formatterFilterYear);
-                }
                 
                 // Apply custom sorting
                 if (formatterSortField) {
@@ -525,14 +553,14 @@ const AdminDashboard = () => {
                             valA = a.userId?.registerNumber || '';
                             valB = b.userId?.registerNumber || '';
                         } else if (formatterSortField === 'score') {
-                            valA = a.score || 0;
-                            valB = b.score || 0;
+                            valA = a.score !== null && a.score !== undefined ? a.score : -1;
+                            valB = b.score !== null && b.score !== undefined ? b.score : -1;
                         } else if (formatterSortField === 'timeSpent') {
                             valA = a.timeSpent || 0;
                             valB = b.timeSpent || 0;
                         } else {
-                            valA = new Date(a.submittedAt).getTime() || 0;
-                            valB = new Date(b.submittedAt).getTime() || 0;
+                            valA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                            valB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
                         }
                         
                         if (typeof valA === 'string') {
@@ -555,6 +583,7 @@ const AdminDashboard = () => {
                         `\n</Row>`;
                         
                     let dataRows = list.map(sub => {
+                        const isUnattended = sub.attendanceStatus === 'unattended';
                         let cells = visibleCols.map(col => {
                             let styleId = 'DataCell';
                             let type = 'String';
@@ -572,23 +601,38 @@ const AdminDashboard = () => {
                             } else if (col.key === 'quizTitle') {
                                 val = sub.quizId?.title || '';
                             } else if (col.key === 'score') {
-                                val = sub.score !== undefined ? sub.score : 0;
-                                type = 'Number';
+                                if (isUnattended) {
+                                    val = 'Absent';
+                                    type = 'String';
+                                } else {
+                                    val = sub.score !== undefined && sub.score !== null ? sub.score : 0;
+                                    type = 'Number';
+                                }
                                 styleId = 'DataCellCenter';
                             } else if (col.key === 'attemptNumber') {
-                                val = sub.attemptNumber || 1;
-                                type = 'Number';
+                                if (isUnattended) {
+                                    val = '—';
+                                    type = 'String';
+                                } else {
+                                    val = sub.attemptNumber || 1;
+                                    type = 'Number';
+                                }
                                 styleId = 'DataCellCenter';
                             } else if (col.key === 'timeSpent') {
-                                val = sub.timeSpent || 0;
-                                type = 'Number';
+                                if (isUnattended) {
+                                    val = '—';
+                                    type = 'String';
+                                } else {
+                                    val = sub.timeSpent || 0;
+                                    type = 'Number';
+                                }
                                 styleId = 'DataCellCenter';
                             } else if (col.key === 'deviceUsed') {
-                                val = sub.deviceUsed || 'Desktop';
+                                val = isUnattended ? '—' : (sub.deviceUsed || 'Desktop');
                             } else if (col.key === 'status') {
-                                val = sub.isSuspicious ? 'Flagged' : 'Clean';
+                                val = isUnattended ? 'Absent' : (sub.isSuspicious ? 'Flagged' : 'Clean');
                             } else if (col.key === 'submittedAt') {
-                                val = new Date(sub.submittedAt).toLocaleString();
+                                val = isUnattended || !sub.submittedAt ? '—' : new Date(sub.submittedAt).toLocaleString();
                             }
                             
                             return `  <Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${val}</Data></Cell>`;
@@ -669,6 +713,7 @@ const AdminDashboard = () => {
                     let tableHeaders = visibleCols.map(c => `<th style="padding: 8px; text-align: left; background-color: #f3f4f6;">${c.customLabel || c.label}</th>`).join('');
                     
                     let tableRows = list.map(sub => {
+                        const isUnattended = sub.attendanceStatus === 'unattended';
                         let cells = visibleCols.map(col => {
                             let val = '';
                             if (col.key === 'registerNumber') val = sub.userId?.registerNumber || '—';
@@ -676,12 +721,12 @@ const AdminDashboard = () => {
                             else if (col.key === 'department') val = sub.userId?.department || '—';
                             else if (col.key === 'year') val = sub.userId?.year || '—';
                             else if (col.key === 'quizTitle') val = sub.quizId?.title || '—';
-                            else if (col.key === 'score') val = sub.score !== undefined ? sub.score : 0;
-                            else if (col.key === 'attemptNumber') val = sub.attemptNumber || 1;
-                            else if (col.key === 'timeSpent') val = sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s';
-                            else if (col.key === 'deviceUsed') val = sub.deviceUsed || 'Desktop';
-                            else if (col.key === 'status') val = sub.isSuspicious ? 'Flagged' : 'Clean';
-                            else if (col.key === 'submittedAt') val = new Date(sub.submittedAt).toLocaleString();
+                            else if (col.key === 'score') val = isUnattended ? 'Absent' : (sub.score !== undefined && sub.score !== null ? sub.score : 0);
+                            else if (col.key === 'attemptNumber') val = isUnattended ? '—' : (sub.attemptNumber || 1);
+                            else if (col.key === 'timeSpent') val = isUnattended ? '—' : (sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s');
+                            else if (col.key === 'deviceUsed') val = isUnattended ? '—' : (sub.deviceUsed || 'Desktop');
+                            else if (col.key === 'status') val = isUnattended ? 'Absent' : (sub.isSuspicious ? 'Flagged' : 'Clean');
+                            else if (col.key === 'submittedAt') val = isUnattended || !sub.submittedAt ? '—' : new Date(sub.submittedAt).toLocaleString();
                             
                             return `<td style="padding: 8px; border: 1px solid #e5e7eb;">${val}</td>`;
                         }).join('');
@@ -714,6 +759,7 @@ const AdminDashboard = () => {
                     let tableHeaders = visibleCols.map(c => `<th>${c.customLabel || c.label}</th>`).join('');
                     
                     let tableRows = list.map((sub, idx) => {
+                        const isUnattended = sub.attendanceStatus === 'unattended';
                         let cells = visibleCols.map(col => {
                             let val = '';
                             if (col.key === 'registerNumber') val = sub.userId?.registerNumber || '—';
@@ -721,12 +767,12 @@ const AdminDashboard = () => {
                             else if (col.key === 'department') val = sub.userId?.department || '—';
                             else if (col.key === 'year') val = sub.userId?.year || '—';
                             else if (col.key === 'quizTitle') val = sub.quizId?.title || '—';
-                            else if (col.key === 'score') val = sub.score !== undefined ? sub.score : 0;
-                            else if (col.key === 'attemptNumber') val = sub.attemptNumber || 1;
-                            else if (col.key === 'timeSpent') val = sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s';
-                            else if (col.key === 'deviceUsed') val = sub.deviceUsed || 'Desktop';
-                            else if (col.key === 'status') val = sub.isSuspicious ? 'Flagged' : 'Clean';
-                            else if (col.key === 'submittedAt') val = new Date(sub.submittedAt).toLocaleString();
+                            else if (col.key === 'score') val = isUnattended ? 'Absent' : (sub.score !== undefined && sub.score !== null ? sub.score : 0);
+                            else if (col.key === 'attemptNumber') val = isUnattended ? '—' : (sub.attemptNumber || 1);
+                            else if (col.key === 'timeSpent') val = isUnattended ? '—' : (sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s');
+                            else if (col.key === 'deviceUsed') val = isUnattended ? '—' : (sub.deviceUsed || 'Desktop');
+                            else if (col.key === 'status') val = isUnattended ? 'Absent' : (sub.isSuspicious ? 'Flagged' : 'Clean');
+                            else if (col.key === 'submittedAt') val = isUnattended || !sub.submittedAt ? '—' : new Date(sub.submittedAt).toLocaleString();
                             
                             return `<td>${val}</td>`;
                         }).join('');
@@ -2110,21 +2156,79 @@ const AdminDashboard = () => {
             {activeTab === 'results' && (
                 <div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            <label style={{ fontWeight: 600, fontSize: 14, color: '#333' }}>Filter by Quiz:</label>
-                            <select
-                                value={selectedQuizFilter}
-                                onChange={e => handleQuizFilterChange(e.target.value)}
-                                style={{
-                                    padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(0,0,0,0.1)',
-                                    background: 'white', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none'
-                                }}
-                            >
-                                <option value="all">📁 All Quizzes</option>
-                                {quizzes.map(q => (
-                                    <option key={q._id} value={q._id}>📝 {q.title}</option>
-                                ))}
-                            </select>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label style={{ fontWeight: 600, fontSize: 13, color: '#555' }}>Quiz:</label>
+                                <select
+                                    value={selectedQuizFilter}
+                                    onChange={e => handleQuizFilterChange(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.1)',
+                                        background: 'white', fontWeight: 600, fontSize: 12, cursor: 'pointer', outline: 'none'
+                                    }}
+                                >
+                                    <option value="all">📁 All Quizzes</option>
+                                    {quizzes.map(q => (
+                                        <option key={q._id} value={q._id}>📝 {q.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label style={{ fontWeight: 600, fontSize: 13, color: '#555' }}>Dept:</label>
+                                <select
+                                    value={resultsFilterDept}
+                                    onChange={e => handleResultsDeptChange(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.1)',
+                                        background: 'white', fontWeight: 600, fontSize: 12, cursor: 'pointer', outline: 'none'
+                                    }}
+                                >
+                                    <option value="all">All Departments</option>
+                                    <option value="ECE">ECE</option>
+                                    <option value="EEE">EEE</option>
+                                    <option value="CSE">CSE</option>
+                                    <option value="IT">IT</option>
+                                    <option value="AIDS">AIDS</option>
+                                    <option value="BME">BME</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label style={{ fontWeight: 600, fontSize: 13, color: '#555' }}>Year:</label>
+                                <select
+                                    value={resultsFilterYear}
+                                    onChange={e => handleResultsYearChange(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.1)',
+                                        background: 'white', fontWeight: 600, fontSize: 12, cursor: 'pointer', outline: 'none'
+                                    }}
+                                >
+                                    <option value="all">All Years</option>
+                                    <option value="I">Year I</option>
+                                    <option value="II">Year II</option>
+                                    <option value="III">Year III</option>
+                                    <option value="IV">Year IV</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label style={{ fontWeight: 600, fontSize: 13, color: '#555' }}>Status:</label>
+                                <select
+                                    value={resultsFilterAttendance}
+                                    onChange={e => handleResultsAttendanceChange(e.target.value)}
+                                    disabled={selectedQuizFilter === 'all'}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.1)',
+                                        background: selectedQuizFilter === 'all' ? '#f3f4f6' : 'white', 
+                                        fontWeight: 600, fontSize: 12, cursor: selectedQuizFilter === 'all' ? 'not-allowed' : 'pointer', outline: 'none'
+                                    }}
+                                >
+                                    <option value="all">All Candidates</option>
+                                    <option value="attended">✅ Attended</option>
+                                    <option value="unattended">❌ Unattended</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -2191,48 +2295,65 @@ const AdminDashboard = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {results.map((r, idx) => (
-                                    <tr key={r._id || idx} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', transition: 'background var(--transition-fast)' }}
-                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: '#777' }}>{(resultsPage - 1) * 10 + idx + 1}</td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>{r.userId?.registerNumber || '—'}</td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>{r.userId?.name || '—'}</td>
-                                        <td style={{ padding: '12px 16px', color: '#555' }}>
-                                            {r.userId?.department || '—'} / Yr {r.userId?.year || '—'}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: 'var(--color-text-secondary)' }}>{r.quizId?.title || '—'}</td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--brand-accent)', fontSize: 15, textAlign: 'center' }}>{r.score}</td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>{r.attemptNumber || 1}</td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: '#555' }}>
-                                            {r.timeSpent ? `${Math.floor(r.timeSpent / 60)}m ${r.timeSpent % 60}s` : '0s'}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: '#666', fontSize: 12 }}>{r.deviceUsed || 'Desktop'}</td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                            {r.isSuspicious
-                                                ? <span style={{ color: '#cc000a', background: 'rgba(255,69,58,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>🚩 Flagged</span>
-                                                : <span style={{ color: '#1a7a3a', background: 'rgba(52,199,89,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>✓ Clean</span>}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-                                            {(() => {
-                                                try {
-                                                    return new Date(r.submittedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-                                                } catch (e) {
-                                                    return String(r.submittedAt);
-                                                }
-                                            })()}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                            <button
-                                                onClick={() => handleRestartTest(r)}
-                                                className="btn btn-sm btn-ghost"
-                                                style={{ border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', background: 'rgba(239,68,68,0.05)', fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                            >
-                                                🔄 Restart Test
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {results.map((r, idx) => {
+                                    const isUnattended = r.attendanceStatus === 'unattended';
+                                    return (
+                                        <tr key={r._id || idx} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', transition: 'background var(--transition-fast)' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: '#777' }}>{(resultsPage - 1) * 10 + idx + 1}</td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 600 }}>{r.userId?.registerNumber || '—'}</td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 600 }}>{r.userId?.name || '—'}</td>
+                                            <td style={{ padding: '12px 16px', color: '#555' }}>
+                                                {r.userId?.department || '—'} / Yr {r.userId?.year || '—'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', color: 'var(--color-text-secondary)' }}>{r.quizId?.title || '—'}</td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 800, color: isUnattended ? '#9ca3af' : 'var(--brand-accent)', fontSize: 15, textAlign: 'center' }}>
+                                                {isUnattended ? '—' : r.score}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>{isUnattended ? '—' : (r.attemptNumber || 1)}</td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: '#555' }}>
+                                                {isUnattended ? '—' : (r.timeSpent ? `${Math.floor(r.timeSpent / 60)}m ${r.timeSpent % 60}s` : '0s')}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: '#666', fontSize: 12 }}>{isUnattended ? '—' : (r.deviceUsed || 'Desktop')}</td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                                {isUnattended ? (
+                                                    <span style={{ color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>❌ Absent</span>
+                                                ) : r.isSuspicious ? (
+                                                    <span style={{ color: '#cc000a', background: 'rgba(255,69,58,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>🚩 Flagged</span>
+                                                ) : (
+                                                    <span style={{ color: '#1a7a3a', background: 'rgba(52,199,89,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>✓ Clean</span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                                                {isUnattended ? '—' : (() => {
+                                                    try {
+                                                        return new Date(r.submittedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+                                                    } catch (e) {
+                                                        return String(r.submittedAt);
+                                                    }
+                                                })()}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => handleRestartTest(r)}
+                                                    disabled={isUnattended}
+                                                    className="btn btn-sm btn-ghost"
+                                                    style={{ 
+                                                        border: isUnattended ? '1px solid #e5e7eb' : '1px solid rgba(239,68,68,0.2)', 
+                                                        color: isUnattended ? '#9ca3af' : '#ef4444', 
+                                                        background: isUnattended ? '#f3f4f6' : 'rgba(239,68,68,0.05)', 
+                                                        fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '4px 10px', 
+                                                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                        cursor: isUnattended ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
+                                                    🔄 Restart Test
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {results.length === 0 && <tr><td colSpan="12" style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No submissions found matching criteria.</td></tr>}
                             </tbody>
                         </table>
@@ -2627,14 +2748,14 @@ const AdminDashboard = () => {
                                                     valA = a.userId?.registerNumber || '';
                                                     valB = b.userId?.registerNumber || '';
                                                 } else if (formatterSortField === 'score') {
-                                                    valA = a.score || 0;
-                                                    valB = b.score || 0;
+                                                    valA = a.score !== null && a.score !== undefined ? a.score : -1;
+                                                    valB = b.score !== null && b.score !== undefined ? b.score : -1;
                                                 } else if (formatterSortField === 'timeSpent') {
                                                     valA = a.timeSpent || 0;
                                                     valB = b.timeSpent || 0;
                                                 } else {
-                                                    valA = new Date(a.submittedAt).getTime() || 0;
-                                                    valB = new Date(b.submittedAt).getTime() || 0;
+                                                    valA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                                                    valB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
                                                 }
                                                 if (typeof valA === 'string') return valA.localeCompare(valB) * order;
                                                 return (valA < valB ? -1 : valA > valB ? 1 : 0) * order;
@@ -2664,27 +2785,30 @@ const AdminDashboard = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {displayList.map((sub, idx) => (
-                                                        <tr key={sub._id || idx} style={{ borderBottom: '1px solid #f9f9f9' }}>
-                                                            <td style={{ padding: '8px 12px', textAlign: 'center', color: '#888' }}>{idx + 1}</td>
-                                                            {activeCols.map(col => {
-                                                                let cellVal = '';
-                                                                if (col.key === 'registerNumber') cellVal = sub.userId?.registerNumber || '—';
-                                                                else if (col.key === 'name') cellVal = sub.userId?.name || '—';
-                                                                else if (col.key === 'department') cellVal = sub.userId?.department || '—';
-                                                                else if (col.key === 'year') cellVal = sub.userId?.year || '—';
-                                                                else if (col.key === 'quizTitle') cellVal = sub.quizId?.title || '—';
-                                                                else if (col.key === 'score') cellVal = sub.score !== undefined ? sub.score : 0;
-                                                                else if (col.key === 'attemptNumber') cellVal = sub.attemptNumber || 1;
-                                                                else if (col.key === 'timeSpent') cellVal = sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s';
-                                                                else if (col.key === 'deviceUsed') cellVal = sub.deviceUsed || 'Desktop';
-                                                                else if (col.key === 'status') cellVal = sub.isSuspicious ? 'Flagged' : 'Clean';
-                                                                else if (col.key === 'submittedAt') cellVal = new Date(sub.submittedAt).toLocaleDateString();
+                                                    {displayList.map((sub, idx) => {
+                                                        const isUnattended = sub.attendanceStatus === 'unattended';
+                                                        return (
+                                                            <tr key={sub._id || idx} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                                                                <td style={{ padding: '8px 12px', textAlign: 'center', color: '#888' }}>{idx + 1}</td>
+                                                                {activeCols.map(col => {
+                                                                    let cellVal = '';
+                                                                    if (col.key === 'registerNumber') cellVal = sub.userId?.registerNumber || '—';
+                                                                    else if (col.key === 'name') cellVal = sub.userId?.name || '—';
+                                                                    else if (col.key === 'department') cellVal = sub.userId?.department || '—';
+                                                                    else if (col.key === 'year') cellVal = sub.userId?.year || '—';
+                                                                    else if (col.key === 'quizTitle') cellVal = sub.quizId?.title || '—';
+                                                                    else if (col.key === 'score') cellVal = isUnattended ? 'Absent' : (sub.score !== undefined && sub.score !== null ? sub.score : 0);
+                                                                    else if (col.key === 'attemptNumber') cellVal = isUnattended ? '—' : (sub.attemptNumber || 1);
+                                                                    else if (col.key === 'timeSpent') cellVal = isUnattended ? '—' : (sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s');
+                                                                    else if (col.key === 'deviceUsed') cellVal = isUnattended ? '—' : (sub.deviceUsed || 'Desktop');
+                                                                    else if (col.key === 'status') cellVal = isUnattended ? 'Absent' : (sub.isSuspicious ? 'Flagged' : 'Clean');
+                                                                    else if (col.key === 'submittedAt') cellVal = isUnattended || !sub.submittedAt ? '—' : new Date(sub.submittedAt).toLocaleDateString();
 
-                                                                return <td key={col.key} style={{ padding: '8px 12px' }}>{cellVal}</td>;
-                                                            })}
-                                                        </tr>
-                                                    ))}
+                                                                    return <td key={col.key} style={{ padding: '8px 12px' }}>{cellVal}</td>;
+                                                                })}
+                                                            </tr>
+                                                        );
+                                                    })}
                                                     {displayList.length === 0 && <tr><td colSpan={activeCols.length + 1} style={{ padding: 24, textAlign: 'center', color: '#888' }}>No records previewable.</td></tr>}
                                                 </tbody>
                                             </table>

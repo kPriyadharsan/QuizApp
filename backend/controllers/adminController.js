@@ -179,26 +179,91 @@ export const deleteQuiz = async (req, res) => {
 
 export const getResults = async (req, res) => {
     try {
-        const { quizId, sortField, sortOrder, limit: limitQuery, page: pageQuery } = req.query;
+        const { quizId, sortField, sortOrder, limit: limitQuery, page: pageQuery, year, department, attendanceStatus } = req.query;
         const page = parseInt(pageQuery) || 1;
         const limit = parseInt(limitQuery) || 10;
         const skip = (page - 1) * limit;
 
-        const filter = {};
-        if (quizId) {
-            filter.quizId = quizId;
+        const submissionFilter = {};
+        if (quizId && quizId !== 'all') {
+            submissionFilter.quizId = quizId;
         }
 
-        // Fetch all matching submissions populated
-        let submissions = await Submission.find(filter)
+        // Fetch submissions
+        let submissions = await Submission.find(submissionFilter)
             .populate('userId', 'name email registerNumber year department college')
             .populate('quizId', 'title')
             .lean();
 
-        // Sort in memory to easily support nested fields sorting (name, registerNumber, score, timeSpent, submittedAt)
+        let list = [];
+
+        // If quizId is specific, we can compute attendance list (attended & unattended)
+        if (quizId && quizId !== 'all') {
+            // Get all approved users who are students
+            const allStudents = await User.find({ role: 'user', isApproved: true }).lean();
+            const quiz = await Quiz.findById(quizId).select('title').lean();
+
+            // Map users to their submissions
+            const userSubmissionsMap = {};
+            submissions.forEach(sub => {
+                const uid = sub.userId?._id?.toString() || sub.userId?.toString();
+                if (uid) {
+                    if (!userSubmissionsMap[uid]) userSubmissionsMap[uid] = [];
+                    userSubmissionsMap[uid].push(sub);
+                }
+            });
+
+            allStudents.forEach(student => {
+                const uid = student._id.toString();
+                const studentSubs = userSubmissionsMap[uid] || [];
+
+                if (studentSubs.length > 0) {
+                    // Add all attempts/submissions of the student
+                    studentSubs.forEach(sub => {
+                        list.push({
+                            ...sub,
+                            attendanceStatus: 'attended'
+                        });
+                    });
+                } else {
+                    // Add a virtual unattended row
+                    list.push({
+                        _id: `virtual-${student._id}`,
+                        userId: student,
+                        quizId: quiz || { _id: quizId, title: 'Deleted Quiz' },
+                        score: null,
+                        attemptNumber: null,
+                        timeSpent: null,
+                        isSuspicious: false,
+                        submittedAt: null,
+                        deviceUsed: '—',
+                        attendanceStatus: 'unattended'
+                    });
+                }
+            });
+        } else {
+            // Just map standard submissions
+            list = submissions.map(sub => ({
+                ...sub,
+                attendanceStatus: 'attended'
+            }));
+        }
+
+        // Apply filters in memory
+        if (year && year !== 'all') {
+            list = list.filter(item => item.userId?.year === year);
+        }
+        if (department && department !== 'all') {
+            list = list.filter(item => item.userId?.department === department);
+        }
+        if (attendanceStatus && attendanceStatus !== 'all') {
+            list = list.filter(item => item.attendanceStatus === attendanceStatus);
+        }
+
+        // Sort in memory (name, registerNumber, score, timeSpent, submittedAt)
         if (sortField) {
             const order = sortOrder === 'desc' ? -1 : 1;
-            submissions.sort((a, b) => {
+            list.sort((a, b) => {
                 let valA, valB;
                 if (sortField === 'name') {
                     valA = a.userId?.name || '';
@@ -207,14 +272,14 @@ export const getResults = async (req, res) => {
                     valA = a.userId?.registerNumber || '';
                     valB = b.userId?.registerNumber || '';
                 } else if (sortField === 'score') {
-                    valA = a.score || 0;
-                    valB = b.score || 0;
+                    valA = a.score !== null && a.score !== undefined ? a.score : -1;
+                    valB = b.score !== null && b.score !== undefined ? b.score : -1;
                 } else if (sortField === 'timeSpent') {
                     valA = a.timeSpent || 0;
                     valB = b.timeSpent || 0;
                 } else {
-                    valA = new Date(a.submittedAt).getTime() || 0;
-                    valB = new Date(b.submittedAt).getTime() || 0;
+                    valA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                    valB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
                 }
 
                 if (typeof valA === 'string') {
@@ -226,19 +291,24 @@ export const getResults = async (req, res) => {
             });
         } else {
             // Default sort by submittedAt desc
-            submissions.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+            list.sort((a, b) => {
+                const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+                return timeB - timeA;
+            });
         }
 
-        const total = submissions.length;
-        const paginatedSubmissions = submissions.slice(skip, skip + limit);
+        const total = list.length;
+        const paginatedList = list.slice(skip, skip + limit);
 
         res.json({
-            submissions: paginatedSubmissions,
+            submissions: paginatedList,
             total,
             page,
             pages: Math.ceil(total / limit)
         });
     } catch (error) {
+        console.error("❌ Error in getResults:", error);
         res.status(500).json({ message: 'Error fetching results', error: error.message });
     }
 };

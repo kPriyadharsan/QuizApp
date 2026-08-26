@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -72,7 +73,33 @@ const BlockedScreen = () => {
 };
 
 const PendingApprovalScreen = () => {
-  const { logout } = useAuth();
+  const { logout, user, setUser } = useAuth();
+  const [checking, setChecking] = useState(false);
+
+  const checkStatus = useCallback(async () => {
+    if (!user?.token || checking) return;
+    setChecking(true);
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      if (res.data && res.data.isApproved) {
+        const updatedUser = { ...res.data, token: user.token };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (e) {
+      console.error('Error checking approval status:', e);
+    } finally {
+      setChecking(false);
+    }
+  }, [user, checking, setUser]);
+
+  useEffect(() => {
+    const timer = setInterval(checkStatus, 5000);
+    return () => clearInterval(timer);
+  }, [checkStatus]);
+
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--color-bg)' }}>
       <div className="card anim-up" style={{ maxWidth: 400, width: '100%', padding: '48px 32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}>
@@ -80,10 +107,24 @@ const PendingApprovalScreen = () => {
           <span style={{ fontSize: 32 }}>⏳</span>
         </div>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--brand-accent)', marginBottom: 12 }}>Pending Approval</h2>
-        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 28, fontSize: 14.5, lineHeight: 1.6 }}>
+        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 20, fontSize: 14.5, lineHeight: 1.6 }}>
           Your student registration request is currently pending administrative validation. You will gain access as soon as your account is approved.
         </p>
-        <button className="btn btn-primary btn-full" onClick={logout} style={{ fontSize: 15, padding: 14 }}>Sign Out</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--color-text-tertiary)', fontSize: 12, marginBottom: 28 }}>
+          <span className="spinner-small" style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--brand-accent)', borderRadius: '50%', display: 'inline-block', animation: 'spin 1s linear infinite' }}></span>
+          <span>Checking approval status automatically...</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button 
+            className="btn btn-primary btn-full" 
+            onClick={checkStatus} 
+            disabled={checking}
+            style={{ fontSize: 15, padding: 14 }}
+          >
+            {checking ? 'Checking Status...' : 'Check Status Now'}
+          </button>
+          <button className="btn btn-ghost btn-full" onClick={logout} style={{ fontSize: 15, padding: 14 }}>Sign Out</button>
+        </div>
       </div>
     </div>
   );

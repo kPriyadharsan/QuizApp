@@ -113,6 +113,25 @@ const AdminDashboard = () => {
     const [resultsSortOrder, setResultsSortOrder] = useState('desc');
     const [selectedQuizFilter, setSelectedQuizFilter] = useState('all');
 
+    const [isFormatterOpen, setIsFormatterOpen] = useState(false);
+    const [formatterFilterDept, setFormatterFilterDept] = useState('');
+    const [formatterFilterYear, setFormatterFilterYear] = useState('');
+    const [formatterSortField, setFormatterSortField] = useState('submittedAt');
+    const [formatterSortOrder, setFormatterSortOrder] = useState('desc');
+    const [formatterColumns, setFormatterColumns] = useState([
+        { key: 'registerNumber', label: 'Register Number', customLabel: 'Register Number', visible: true },
+        { key: 'name', label: 'Student Name', customLabel: 'Student Name', visible: true },
+        { key: 'department', label: 'Department', customLabel: 'Department', visible: true },
+        { key: 'year', label: 'Year', customLabel: 'Year', visible: true },
+        { key: 'quizTitle', label: 'Quiz Title', customLabel: 'Quiz Title', visible: true },
+        { key: 'score', label: 'Score / Marks', customLabel: 'Score / Marks', visible: true },
+        { key: 'attemptNumber', label: 'Attempt No', customLabel: 'Attempt No', visible: true },
+        { key: 'timeSpent', label: 'Time Spent', customLabel: 'Time Spent', visible: true },
+        { key: 'deviceUsed', label: 'Device Used', customLabel: 'Device Used', visible: true },
+        { key: 'status', label: 'Verification Status', customLabel: 'Verification Status', visible: true },
+        { key: 'submittedAt', label: 'Submitted At', customLabel: 'Submitted At', visible: true }
+    ]);
+
     const [attendeesPage, setAttendeesPage] = useState(1);
     const [attendeesPages, setAttendeesPages] = useState(1);
     const [attendeesTotal, setAttendeesTotal] = useState(0);
@@ -473,187 +492,298 @@ const AdminDashboard = () => {
         }
     };
 
-    const exportToCSV = () => {
-        const headers = ['Register Number', 'Name', 'Department', 'Year', 'Quiz Title', 'Score', 'Attempt', 'Time Spent (s)', 'Device Used', 'Is Suspicious', 'Submitted At'];
-        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000&sortField=${resultsSortField}&sortOrder=${resultsSortOrder}`;
+    const triggerFormatterExport = (format) => {
+        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000`;
         if (selectedQuizFilter !== 'all') {
             url += `&quizId=${selectedQuizFilter}`;
         }
+        
         axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
             .then(res => {
                 if (!res.data || !res.data.submissions) return;
-                const rows = res.data.submissions.map(sub => [
-                    `"${sub.userId?.registerNumber || ''}"`,
-                    `"${sub.userId?.name || ''}"`,
-                    `"${sub.userId?.department || ''}"`,
-                    `"${sub.userId?.year || ''}"`,
-                    `"${sub.quizId?.title || ''}"`,
-                    sub.score,
-                    sub.attemptNumber || 1,
-                    sub.timeSpent || 0,
-                    `"${sub.deviceUsed || 'Desktop'}"`,
-                    sub.isSuspicious ? 'Yes' : 'No',
-                    `"${new Date(sub.submittedAt).toLocaleString()}"`
-                ]);
-                const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.setAttribute('download', `Quiz_Results_${new Date().toISOString().slice(0, 10)}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            })
-            .catch(err => alert('Failed to export CSV: ' + err.message));
-    };
-
-    const exportToWord = () => {
-        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000&sortField=${resultsSortField}&sortOrder=${resultsSortOrder}`;
-        if (selectedQuizFilter !== 'all') {
-            url += `&quizId=${selectedQuizFilter}`;
-        }
-        axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
-            .then(res => {
-                if (!res.data || !res.data.submissions) return;
-                let tableHtml = `<table border="1" style="border-collapse: collapse; width: 100%; font-family: sans-serif;">
-                    <thead>
-                        <tr style="background-color: #f2f2f2;">
-                            <th style="padding: 8px;">Reg No</th>
-                            <th style="padding: 8px;">Name</th>
-                            <th style="padding: 8px;">Dept</th>
-                            <th style="padding: 8px;">Year</th>
-                            <th style="padding: 8px;">Quiz</th>
-                            <th style="padding: 8px;">Score</th>
-                            <th style="padding: 8px;">Attempt</th>
-                            <th style="padding: 8px;">Time Spent (s)</th>
-                            <th style="padding: 8px;">Device</th>
-                            <th style="padding: 8px;">Suspicious</th>
-                            <th style="padding: 8px;">Submitted</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-                res.data.submissions.forEach(sub => {
-                    tableHtml += `<tr>
-                        <td style="padding: 8px;">${sub.userId?.registerNumber || '—'}</td>
-                        <td style="padding: 8px;">${sub.userId?.name || '—'}</td>
-                        <td style="padding: 8px;">${sub.userId?.department || '—'}</td>
-                        <td style="padding: 8px;">${sub.userId?.year || '—'}</td>
-                        <td style="padding: 8px;">${sub.quizId?.title || '—'}</td>
-                        <td style="padding: 8px; font-weight: bold; text-align: center;">${sub.score}</td>
-                        <td style="padding: 8px; text-align: center;">${sub.attemptNumber || 1}</td>
-                        <td style="padding: 8px; text-align: center;">${sub.timeSpent || 0}s</td>
-                        <td style="padding: 8px;">${sub.deviceUsed || 'Desktop'}</td>
-                        <td style="padding: 8px; color: ${sub.isSuspicious ? 'red' : 'green'};">${sub.isSuspicious ? 'Flagged' : 'Clean'}</td>
-                        <td style="padding: 8px;">${new Date(sub.submittedAt).toLocaleString()}</td>
-                    </tr>`;
-                });
-                tableHtml += '</tbody></table>';
-                const htmlContent = `
-                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                    <head><title>Quiz Results</title></head>
-                    <body>
-                        <h2>Quiz Submission Results Report</h2>
-                        <p>Generated on: ${new Date().toLocaleString()}</p>
-                        ${tableHtml}
-                    </body>
-                    </html>`;
-                const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.setAttribute('download', `Quiz_Results_${new Date().toISOString().slice(0, 10)}.doc`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            })
-            .catch(err => alert('Failed to export Word: ' + err.message));
-    };
-
-    const exportToPDF = () => {
-        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000&sortField=${resultsSortField}&sortOrder=${resultsSortOrder}`;
-        if (selectedQuizFilter !== 'all') {
-            url += `&quizId=${selectedQuizFilter}`;
-        }
-        axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
-            .then(res => {
-                if (!res.data || !res.data.submissions) return;
-                const printWindow = window.open('', '_blank');
-                let tableRows = '';
-                res.data.submissions.forEach((sub, idx) => {
-                    tableRows += `
-                        <tr style="border-bottom: 1px solid #ddd;">
-                            <td style="padding: 8px; text-align: center;">${idx + 1}</td>
-                            <td style="padding: 8px;">${sub.userId?.registerNumber || '—'}</td>
-                            <td style="padding: 8px; font-weight: 600;">${sub.userId?.name || '—'}</td>
-                            <td style="padding: 8px;">${sub.userId?.department || '—'} / Yr ${sub.userId?.year || '—'}</td>
-                            <td style="padding: 8px;">${sub.quizId?.title || '—'}</td>
-                            <td style="padding: 8px; font-weight: bold; text-align: center; font-size: 14px; color: #6c63ff;">${sub.score}</td>
-                            <td style="padding: 8px; text-align: center;">${sub.attemptNumber || 1}</td>
-                            <td style="padding: 8px; text-align: center;">${sub.timeSpent ? Math.floor(sub.timeSpent / 60) + 'm ' + (sub.timeSpent % 60) + 's' : '0s'}</td>
-                            <td style="padding: 8px; text-align: center;">${sub.deviceUsed || 'Desktop'}</td>
-                            <td style="padding: 8px; text-align: center; color: ${sub.isSuspicious ? '#dc2626' : '#16a34a'}; font-weight: 600;">
-                                ${sub.isSuspicious ? 'Flagged' : 'Clean'}
-                            </td>
-                            <td style="padding: 8px; font-size: 11px;">${new Date(sub.submittedAt).toLocaleString()}</td>
-                        </tr>
-                    `;
-                });
-                printWindow.document.write(`
-                    <html>
-                    <head>
-                        <title>Quiz Results PDF Report</title>
-                        <style>
-                            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
-                            h2 { color: #111; margin-bottom: 5px; }
-                            p { color: #666; font-size: 12px; margin-top: 0; margin-bottom: 20px; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-                            th { background-color: #f8f9fa; color: #4b5563; text-transform: uppercase; font-size: 10px; font-weight: 700; padding: 10px 8px; border-bottom: 2px solid #e5e7eb; text-align: left; }
-                            @media print {
-                                @page { size: landscape; margin: 15mm; }
-                                button { display: none; }
+                
+                // Get all matching submissions
+                let list = [...res.data.submissions];
+                
+                // Apply custom filters
+                if (formatterFilterDept) {
+                    list = list.filter(s => s.userId?.department === formatterFilterDept);
+                }
+                if (formatterFilterYear) {
+                    list = list.filter(s => s.userId?.year === formatterFilterYear);
+                }
+                
+                // Apply custom sorting
+                if (formatterSortField) {
+                    const order = formatterSortOrder === 'desc' ? -1 : 1;
+                    list.sort((a, b) => {
+                        let valA, valB;
+                        if (formatterSortField === 'name') {
+                            valA = a.userId?.name || '';
+                            valB = b.userId?.name || '';
+                        } else if (formatterSortField === 'registerNumber') {
+                            valA = a.userId?.registerNumber || '';
+                            valB = b.userId?.registerNumber || '';
+                        } else if (formatterSortField === 'score') {
+                            valA = a.score || 0;
+                            valB = b.score || 0;
+                        } else if (formatterSortField === 'timeSpent') {
+                            valA = a.timeSpent || 0;
+                            valB = b.timeSpent || 0;
+                        } else {
+                            valA = new Date(a.submittedAt).getTime() || 0;
+                            valB = new Date(b.submittedAt).getTime() || 0;
+                        }
+                        
+                        if (typeof valA === 'string') {
+                            return valA.localeCompare(valB, undefined, { sensitivity: 'base' }) * order;
+                        }
+                        if (valA < valB) return -1 * order;
+                        if (valA > valB) return 1 * order;
+                        return 0;
+                    });
+                }
+                
+                const visibleCols = formatterColumns.filter(c => c.visible);
+                
+                if (format === 'excel') {
+                    // Excel SpreadsheetML format (Excel 2003 XML representation with styling)
+                    let colSpecs = visibleCols.map(() => '<Column ss:Width="120"/>').join('\n');
+                    
+                    let headerRow = `<Row ss:Height="26">\n` + 
+                        visibleCols.map(c => `  <Cell ss:StyleID="Header"><Data ss:Type="String">${c.customLabel || c.label}</Data></Cell>`).join('\n') + 
+                        `\n</Row>`;
+                        
+                    let dataRows = list.map(sub => {
+                        let cells = visibleCols.map(col => {
+                            let styleId = 'DataCell';
+                            let type = 'String';
+                            let val = '';
+                            
+                            if (col.key === 'registerNumber') {
+                                val = sub.userId?.registerNumber || '';
+                            } else if (col.key === 'name') {
+                                val = sub.userId?.name || '';
+                            } else if (col.key === 'department') {
+                                val = sub.userId?.department || '';
+                            } else if (col.key === 'year') {
+                                val = sub.userId?.year || '';
+                                styleId = 'DataCellCenter';
+                            } else if (col.key === 'quizTitle') {
+                                val = sub.quizId?.title || '';
+                            } else if (col.key === 'score') {
+                                val = sub.score !== undefined ? sub.score : 0;
+                                type = 'Number';
+                                styleId = 'DataCellCenter';
+                            } else if (col.key === 'attemptNumber') {
+                                val = sub.attemptNumber || 1;
+                                type = 'Number';
+                                styleId = 'DataCellCenter';
+                            } else if (col.key === 'timeSpent') {
+                                val = sub.timeSpent || 0;
+                                type = 'Number';
+                                styleId = 'DataCellCenter';
+                            } else if (col.key === 'deviceUsed') {
+                                val = sub.deviceUsed || 'Desktop';
+                            } else if (col.key === 'status') {
+                                val = sub.isSuspicious ? 'Flagged' : 'Clean';
+                            } else if (col.key === 'submittedAt') {
+                                val = new Date(sub.submittedAt).toLocaleString();
                             }
-                        </style>
-                    </head>
-                    <body>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <h2>Quiz Submission Report</h2>
-                                <p>Generated on: ${new Date().toLocaleString()}</p>
+                            
+                            return `  <Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${val}</Data></Cell>`;
+                        }).join('\n');
+                        
+                        return `<Row ss:Height="20">\n${cells}\n</Row>`;
+                    }).join('\n');
+                    
+                    const xmlTemplate = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>Quiz System Admin</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#1f2937"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1f2937"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1f2937"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1f2937"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#4f46e5" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="DataCell">
+   <Alignment ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#1f2937"/>
+  </Style>
+  <Style ss:ID="DataCellCenter">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e5e7eb"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#1f2937"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Quiz Results">
+  <Table>
+   ${colSpecs}
+   ${headerRow}
+   ${dataRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+                    
+                    const blob = new Blob([xmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute('download', `Quiz_Results_Formatted_${new Date().toISOString().slice(0, 10)}.xls`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else if (format === 'word') {
+                    let tableHeaders = visibleCols.map(c => `<th style="padding: 8px; text-align: left; background-color: #f3f4f6;">${c.customLabel || c.label}</th>`).join('');
+                    
+                    let tableRows = list.map(sub => {
+                        let cells = visibleCols.map(col => {
+                            let val = '';
+                            if (col.key === 'registerNumber') val = sub.userId?.registerNumber || '—';
+                            else if (col.key === 'name') val = sub.userId?.name || '—';
+                            else if (col.key === 'department') val = sub.userId?.department || '—';
+                            else if (col.key === 'year') val = sub.userId?.year || '—';
+                            else if (col.key === 'quizTitle') val = sub.quizId?.title || '—';
+                            else if (col.key === 'score') val = sub.score !== undefined ? sub.score : 0;
+                            else if (col.key === 'attemptNumber') val = sub.attemptNumber || 1;
+                            else if (col.key === 'timeSpent') val = sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s';
+                            else if (col.key === 'deviceUsed') val = sub.deviceUsed || 'Desktop';
+                            else if (col.key === 'status') val = sub.isSuspicious ? 'Flagged' : 'Clean';
+                            else if (col.key === 'submittedAt') val = new Date(sub.submittedAt).toLocaleString();
+                            
+                            return `<td style="padding: 8px; border: 1px solid #e5e7eb;">${val}</td>`;
+                        }).join('');
+                        
+                        return `<tr>${cells}</tr>`;
+                    }).join('');
+                    
+                    const htmlContent = `
+                        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                        <head><title>Quiz Results Report</title></head>
+                        <body style="font-family: sans-serif;">
+                            <h2>Quiz Submission Results Report</h2>
+                            <p>Generated on: ${new Date().toLocaleString()}</p>
+                            <table border="1" style="border-collapse: collapse; width: 100%;">
+                                <thead><tr>${tableHeaders}</tr></thead>
+                                <tbody>${tableRows}</tbody>
+                            </table>
+                        </body>
+                        </html>`;
+                        
+                    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute('download', `Quiz_Results_Formatted_${new Date().toISOString().slice(0, 10)}.doc`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else if (format === 'pdf') {
+                    const printWindow = window.open('', '_blank');
+                    let tableHeaders = visibleCols.map(c => `<th>${c.customLabel || c.label}</th>`).join('');
+                    
+                    let tableRows = list.map((sub, idx) => {
+                        let cells = visibleCols.map(col => {
+                            let val = '';
+                            if (col.key === 'registerNumber') val = sub.userId?.registerNumber || '—';
+                            else if (col.key === 'name') val = sub.userId?.name || '—';
+                            else if (col.key === 'department') val = sub.userId?.department || '—';
+                            else if (col.key === 'year') val = sub.userId?.year || '—';
+                            else if (col.key === 'quizTitle') val = sub.quizId?.title || '—';
+                            else if (col.key === 'score') val = sub.score !== undefined ? sub.score : 0;
+                            else if (col.key === 'attemptNumber') val = sub.attemptNumber || 1;
+                            else if (col.key === 'timeSpent') val = sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s';
+                            else if (col.key === 'deviceUsed') val = sub.deviceUsed || 'Desktop';
+                            else if (col.key === 'status') val = sub.isSuspicious ? 'Flagged' : 'Clean';
+                            else if (col.key === 'submittedAt') val = new Date(sub.submittedAt).toLocaleString();
+                            
+                            return `<td>${val}</td>`;
+                        }).join('');
+                        
+                        return `<tr><td>${idx + 1}</td>${cells}</tr>`;
+                    }).join('');
+                    
+                    printWindow.document.write(`
+                        <html>
+                        <head>
+                            <title>Quiz Results Report</title>
+                            <style>
+                                body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #111827; }
+                                h2 { color: #1e1b4b; font-size: 24px; margin-bottom: 5px; font-weight: 800; }
+                                p { color: #6b7280; font-size: 13px; margin-top: 0; margin-bottom: 24px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+                                th { background-color: #f9fafb; color: #374151; text-transform: uppercase; font-size: 10px; font-weight: 700; padding: 10px 8px; border-bottom: 2px solid #e5e7eb; border-top: 1px solid #e5e7eb; text-align: left; }
+                                td { padding: 8px; border-bottom: 1px solid #f3f4f6; color: #4b5563; }
+                                @media print {
+                                    @page { size: landscape; margin: 15mm; }
+                                    button { display: none; }
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #e5e7eb; padding-bottom: 16px; margin-bottom: 20px;">
+                                <div>
+                                    <h2>Quiz Results Report</h2>
+                                    <p>Generated on: ${new Date().toLocaleString()}</p>
+                                </div>
+                                <button onclick="window.print()" style="padding: 10px 20px; background-color: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; box-shadow: 0 4px 10px rgba(79,70,229,0.2);">Print / Save PDF</button>
                             </div>
-                            <button onclick="window.print()" style="padding: 8px 16px; background-color: #6c63ff; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Print Report</button>
-                        </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Reg No</th>
-                                    <th>Name</th>
-                                    <th>Dept / Year</th>
-                                    <th>Quiz</th>
-                                    <th style="text-align: center;">Score</th>
-                                    <th style="text-align: center;">Attempt</th>
-                                    <th style="text-align: center;">Time Spent</th>
-                                    <th style="text-align: center;">Device</th>
-                                    <th style="text-align: center;">Status</th>
-                                    <th>Submitted At</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${tableRows}
-                            </tbody>
-                        </table>
-                        <script>
-                            window.onload = function() {
-                                setTimeout(function() {
-                                    window.print();
-                                }, 500);
-                            };
-                        </script>
-                    </body>
-                    </html>
-                `);
-                printWindow.document.close();
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        ${tableHeaders}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows}
+                                </tbody>
+                            </table>
+                            <script>
+                                window.onload = function() {
+                                    setTimeout(function() {
+                                        window.print();
+                                    }, 500);
+                                };
+                            </script>
+                        </body>
+                        </html>
+                    `);
+                    printWindow.document.close();
+                }
             })
-            .catch(err => alert('Failed to export PDF: ' + err.message));
+            .catch(err => alert('Failed to generate report: ' + err.message));
     };
     const fetchUsers = async (page = 1) => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?page=${page}&limit=10&isApproved=true`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
@@ -1998,14 +2128,8 @@ const AdminDashboard = () => {
                         </div>
                         
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <button onClick={exportToCSV} className="btn btn-sm btn-ghost" style={{ border: '1px solid rgba(0,0,0,0.1)', background: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                📊 Export CSV
-                            </button>
-                            <button onClick={exportToWord} className="btn btn-sm btn-ghost" style={{ border: '1px solid rgba(0,0,0,0.1)', background: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                📝 Export Word
-                            </button>
-                            <button onClick={exportToPDF} className="btn btn-sm btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                📄 Export PDF / Print
+                            <button onClick={() => setIsFormatterOpen(true)} className="btn btn-sm btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+                                ⚙️ Export & Format Report
                             </button>
                         </div>
                     </div>
@@ -2355,6 +2479,255 @@ const AdminDashboard = () => {
                 token={user.token} 
                 onImportSuccess={handleImportSuccess} 
             />
+
+            {isFormatterOpen && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+                }}>
+                    <div style={{
+                        background: 'white', borderRadius: 24, padding: 32,
+                        width: '100%', maxWidth: 1200, height: '90vh',
+                        display: 'flex', flexDirection: 'column',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.15)', animation: 'modalSlideIn 0.3s ease-out'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, borderBottom: '1px solid #eee', paddingBottom: 16 }}>
+                            <div>
+                                <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#111' }}>📝 Advanced Report Designer & Preview</h3>
+                                <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0' }}>Configure columns, sorting, filters, and rename headers before exporting.</p>
+                            </div>
+                            <button
+                                onClick={() => setIsFormatterOpen(false)}
+                                style={{
+                                    border: 'none', background: 'none', fontSize: 24, fontWeight: 700,
+                                    cursor: 'pointer', color: '#999', padding: 4
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Modal Workspace */}
+                        <div style={{ display: 'flex', gap: 24, flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                            {/* Left Config Panel */}
+                            <div style={{
+                                width: 320, borderRight: '1px solid #eee', paddingRight: 24,
+                                display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto'
+                            }}>
+                                {/* Columns Selector */}
+                                <div>
+                                    <h4 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginBottom: 12 }}>Visible Columns</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {formatterColumns.map((col, idx) => (
+                                            <div key={col.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    id={`chk-${col.key}`}
+                                                    checked={col.visible}
+                                                    onChange={(e) => {
+                                                        const updated = [...formatterColumns];
+                                                        updated[idx].visible = e.target.checked;
+                                                        setFormatterColumns(updated);
+                                                    }}
+                                                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                                                />
+                                                <label htmlFor={`chk-${col.key}`} style={{ fontSize: 13, fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}>
+                                                    {col.label}
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Custom Labels */}
+                                <div>
+                                    <h4 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginBottom: 12 }}>Rename Headers</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 200, overflowY: 'auto', paddingRight: 4 }}>
+                                        {formatterColumns.filter(c => c.visible).map((col, idx) => {
+                                            const realIdx = formatterColumns.findIndex(c => c.key === col.key);
+                                            return (
+                                                <div key={col.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                    <label style={{ fontSize: 11, fontWeight: 600, color: '#888' }}>{col.label}</label>
+                                                    <input
+                                                        type="text"
+                                                        value={col.customLabel}
+                                                        onChange={(e) => {
+                                                            const updated = [...formatterColumns];
+                                                            updated[realIdx].customLabel = e.target.value;
+                                                            setFormatterColumns(updated);
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 10px', borderRadius: 8, border: '1px solid #ccc',
+                                                            fontSize: 12, outline: 'none'
+                                                        }}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Report Filters */}
+                                <div>
+                                    <h4 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginBottom: 12 }}>Quick Filters</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 600, color: '#888' }}>Department</label>
+                                            <select
+                                                value={formatterFilterDept}
+                                                onChange={e => setFormatterFilterDept(e.target.value)}
+                                                style={{ padding: '8px', borderRadius: 8, border: '1px solid #ccc', fontSize: 12, outline: 'none' }}
+                                            >
+                                                <option value="">All Departments</option>
+                                                <option value="ECE">ECE</option>
+                                                <option value="EEE">EEE</option>
+                                                <option value="CSE">CSE</option>
+                                                <option value="IT">IT</option>
+                                                <option value="AIDS">AIDS</option>
+                                                <option value="BME">BME</option>
+                                            </select>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 600, color: '#888' }}>Year</label>
+                                            <select
+                                                value={formatterFilterYear}
+                                                onChange={e => setFormatterFilterYear(e.target.value)}
+                                                style={{ padding: '8px', borderRadius: 8, border: '1px solid #ccc', fontSize: 12, outline: 'none' }}
+                                            >
+                                                <option value="">All Years</option>
+                                                <option value="I">I</option>
+                                                <option value="II">II</option>
+                                                <option value="III">III</option>
+                                                <option value="IV">IV</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Preview Panel */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                <h4 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginBottom: 12 }}>Interactive Preview</h4>
+                                <div style={{ flex: 1, overflow: 'auto', border: '1px solid #eee', borderRadius: 16 }}>
+                                    {/* Data processing in rendering loop for instant preview feedback */}
+                                    {(() => {
+                                        let displayList = [...results];
+                                        if (formatterFilterDept) displayList = displayList.filter(s => s.userId?.department === formatterFilterDept);
+                                        if (formatterFilterYear) displayList = displayList.filter(s => s.userId?.year === formatterFilterYear);
+                                        
+                                        if (formatterSortField) {
+                                            const order = formatterSortOrder === 'desc' ? -1 : 1;
+                                            displayList.sort((a, b) => {
+                                                let valA, valB;
+                                                if (formatterSortField === 'name') {
+                                                    valA = a.userId?.name || '';
+                                                    valB = b.userId?.name || '';
+                                                } else if (formatterSortField === 'registerNumber') {
+                                                    valA = a.userId?.registerNumber || '';
+                                                    valB = b.userId?.registerNumber || '';
+                                                } else if (formatterSortField === 'score') {
+                                                    valA = a.score || 0;
+                                                    valB = b.score || 0;
+                                                } else if (formatterSortField === 'timeSpent') {
+                                                    valA = a.timeSpent || 0;
+                                                    valB = b.timeSpent || 0;
+                                                } else {
+                                                    valA = new Date(a.submittedAt).getTime() || 0;
+                                                    valB = new Date(b.submittedAt).getTime() || 0;
+                                                }
+                                                if (typeof valA === 'string') return valA.localeCompare(valB) * order;
+                                                return (valA < valB ? -1 : valA > valB ? 1 : 0) * order;
+                                            });
+                                        }
+
+                                        const activeCols = formatterColumns.filter(c => c.visible);
+
+                                        return (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                                <thead>
+                                                    <tr style={{ background: '#f9fafb', borderBottom: '2px solid #eee', position: 'sticky', top: 0 }}>
+                                                        <th style={{ padding: '10px 12px', textAlign: 'center', color: '#666' }}>#</th>
+                                                        {activeCols.map(col => (
+                                                            <th
+                                                                key={col.key}
+                                                                onClick={() => {
+                                                                    const nextOrder = formatterSortField === col.key && formatterSortOrder === 'asc' ? 'desc' : 'asc';
+                                                                    setFormatterSortField(col.key);
+                                                                    setFormatterSortOrder(nextOrder);
+                                                                }}
+                                                                style={{ padding: '10px 12px', textAlign: 'left', color: '#666', cursor: 'pointer', userSelect: 'none' }}
+                                                            >
+                                                                {col.customLabel || col.label} {formatterSortField === col.key ? (formatterSortOrder === 'asc' ? '▲' : '▼') : ''}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {displayList.map((sub, idx) => (
+                                                        <tr key={sub._id || idx} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                                                            <td style={{ padding: '8px 12px', textAlign: 'center', color: '#888' }}>{idx + 1}</td>
+                                                            {activeCols.map(col => {
+                                                                let cellVal = '';
+                                                                if (col.key === 'registerNumber') cellVal = sub.userId?.registerNumber || '—';
+                                                                else if (col.key === 'name') cellVal = sub.userId?.name || '—';
+                                                                else if (col.key === 'department') cellVal = sub.userId?.department || '—';
+                                                                else if (col.key === 'year') cellVal = sub.userId?.year || '—';
+                                                                else if (col.key === 'quizTitle') cellVal = sub.quizId?.title || '—';
+                                                                else if (col.key === 'score') cellVal = sub.score !== undefined ? sub.score : 0;
+                                                                else if (col.key === 'attemptNumber') cellVal = sub.attemptNumber || 1;
+                                                                else if (col.key === 'timeSpent') cellVal = sub.timeSpent ? `${Math.floor(sub.timeSpent / 60)}m ${sub.timeSpent % 60}s` : '0s';
+                                                                else if (col.key === 'deviceUsed') cellVal = sub.deviceUsed || 'Desktop';
+                                                                else if (col.key === 'status') cellVal = sub.isSuspicious ? 'Flagged' : 'Clean';
+                                                                else if (col.key === 'submittedAt') cellVal = new Date(sub.submittedAt).toLocaleDateString();
+
+                                                                return <td key={col.key} style={{ padding: '8px 12px' }}>{cellVal}</td>;
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                    {displayList.length === 0 && <tr><td colSpan={activeCols.length + 1} style={{ padding: 24, textAlign: 'center', color: '#888' }}>No records previewable.</td></tr>}
+                                                </tbody>
+                                            </table>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div style={{ display: 'flex', justifycontent: 'flex-end', gap: 12, borderTop: '1px solid #eee', paddingTop: 20, marginTop: 24, justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setIsFormatterOpen(false)}
+                                className="btn btn-ghost"
+                                style={{ borderRadius: 12, padding: '12px 24px', fontWeight: 600 }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => triggerFormatterExport('excel')}
+                                className="btn"
+                                style={{ background: '#107c41', color: 'white', border: 'none', borderRadius: 12, padding: '12px 24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}
+                            >
+                                📊 Export Styled Excel
+                            </button>
+                            <button
+                                onClick={() => triggerFormatterExport('word')}
+                                className="btn"
+                                style={{ background: '#2b579a', color: 'white', border: 'none', borderRadius: 12, padding: '12px 24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}
+                            >
+                                📝 Export Word
+                            </button>
+                            <button
+                                onClick={() => triggerFormatterExport('pdf')}
+                                className="btn btn-primary"
+                                style={{ borderRadius: 12, padding: '12px 24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}
+                            >
+                                📄 Export PDF / Print
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Guided Tour Component will render globally via GuideProvider */}
         </div>

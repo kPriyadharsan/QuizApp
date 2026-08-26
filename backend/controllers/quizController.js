@@ -191,6 +191,17 @@ export const getActiveQuizzes = async (req, res) => {
         // Find all attempts of the current user
         const attempts = await Attempt.find({ userId: req.user.id }).lean();
         
+        // Fetch user allowed attempts and user submissions count
+        const currentUser = await User.findById(req.user.id).lean();
+        const submissions = await Submission.find({ userId: req.user.id }).lean();
+        
+        // Map submissions count by quizId
+        const submissionsCountMap = {};
+        submissions.forEach(s => {
+            const qid = s.quizId.toString();
+            submissionsCountMap[qid] = (submissionsCountMap[qid] || 0) + 1;
+        });
+
         // Map attempts by quizId
         const attemptsMap = {};
         attempts.forEach(a => {
@@ -199,13 +210,45 @@ export const getActiveQuizzes = async (req, res) => {
 
         // Add attempt status to each quiz
         const quizzesWithAttempt = quizzes.map(q => {
-            const attempt = attemptsMap[q._id.toString()];
+            const qidStr = q._id.toString();
+            const attempt = attemptsMap[qidStr];
+            
+            if (attempt) {
+                return {
+                    ...q,
+                    userAttempt: {
+                        status: attempt.status,
+                        flagCount: attempt.flagCount || 0
+                    }
+                };
+            }
+            
+            // Check submissions vs allowed attempts
+            const submissionCount = submissionsCountMap[qidStr] || 0;
+            let allowedAttempts = 1; // default
+            if (currentUser && currentUser.allowedQuizzesAttempts) {
+                // Handle case where allowedQuizzesAttempts is a Mongoose Map or object
+                const mapVal = currentUser.allowedQuizzesAttempts instanceof Map 
+                    ? currentUser.allowedQuizzesAttempts.get(qidStr) 
+                    : currentUser.allowedQuizzesAttempts[qidStr];
+                if (mapVal !== undefined && mapVal !== null) {
+                    allowedAttempts = Number(mapVal);
+                }
+            }
+            
+            if (submissionCount >= allowedAttempts) {
+                return {
+                    ...q,
+                    userAttempt: {
+                        status: 'SUBMITTED',
+                        flagCount: 0
+                    }
+                };
+            }
+            
             return {
                 ...q,
-                userAttempt: attempt ? {
-                    status: attempt.status,
-                    flagCount: attempt.flagCount || 0
-                } : null
+                userAttempt: null
             };
         });
 

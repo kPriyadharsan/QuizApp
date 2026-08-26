@@ -16,8 +16,13 @@ export const AuthProvider = ({ children }) => {
             if (storedUser) {
                 const parsedUser = JSON.parse(storedUser);
                 try {
-                    const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
-                        headers: { Authorization: `Bearer ${parsedUser.token}` }
+                    const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/me?t=${Date.now()}`, {
+                        headers: { 
+                            Authorization: `Bearer ${parsedUser.token}`,
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
+                            'Expires': '0'
+                        }
                     });
                     
                     // Update user state with verified data (including true role)

@@ -77,11 +77,16 @@ const PendingApprovalScreen = () => {
   const [checking, setChecking] = useState(false);
 
   const checkStatus = useCallback(async () => {
-    if (!user?.token || checking) return;
+    if (!user?.token) return;
     setChecking(true);
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${user.token}` }
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/me?t=${Date.now()}`, {
+        headers: { 
+          Authorization: `Bearer ${user.token}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       if (res.data && res.data.isApproved) {
         const updatedUser = { ...res.data, token: user.token };
@@ -93,7 +98,7 @@ const PendingApprovalScreen = () => {
     } finally {
       setChecking(false);
     }
-  }, [user, checking, setUser]);
+  }, [user, setUser]);
 
   useEffect(() => {
     const timer = setInterval(checkStatus, 5000);

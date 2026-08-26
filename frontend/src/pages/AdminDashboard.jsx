@@ -109,6 +109,9 @@ const AdminDashboard = () => {
     const [resultsPage, setResultsPage] = useState(1);
     const [resultsPages, setResultsPages] = useState(1);
     const [resultsTotal, setResultsTotal] = useState(0);
+    const [resultsSortField, setResultsSortField] = useState('submittedAt');
+    const [resultsSortOrder, setResultsSortOrder] = useState('desc');
+    const [selectedQuizFilter, setSelectedQuizFilter] = useState('all');
 
     const [attendeesPage, setAttendeesPage] = useState(1);
     const [attendeesPages, setAttendeesPages] = useState(1);
@@ -248,8 +251,8 @@ const AdminDashboard = () => {
     }, []);
 
     useEffect(() => {
-        if (activeTab === 'results') fetchResults(resultsPage);
-    }, [activeTab, resultsPage]);
+        if (activeTab === 'results') fetchResults(resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter);
+    }, [activeTab, resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter]);
 
     useEffect(() => {
         if (activeTab === 'users') {
@@ -427,14 +430,230 @@ const AdminDashboard = () => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/all-quizzes`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
         if (res) { setQuizzes(res.data); if (res.data.length > 0 && !selectedQuizId) setSelectedQuizId(res.data[0]._id); }
     };
-    const fetchResults = async (page = 1) => {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/results?page=${page}&limit=10`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
+    const fetchResults = async (page = 1, sortField = resultsSortField, sortOrder = resultsSortOrder, quizFilter = selectedQuizFilter) => {
+        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=${page}&limit=10&sortField=${sortField}&sortOrder=${sortOrder}`;
+        if (quizFilter && quizFilter !== 'all') {
+            url += `&quizId=${quizFilter}`;
+        }
+        const res = await axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
         if (res && res.data) {
             setResults(res.data.submissions || []);
             setResultsPage(res.data.page || 1);
             setResultsPages(res.data.pages || 1);
             setResultsTotal(res.data.total || 0);
         }
+    };
+
+    const handleResultsSort = (field) => {
+        let nextOrder = 'asc';
+        if (resultsSortField === field) {
+            nextOrder = resultsSortOrder === 'asc' ? 'desc' : 'asc';
+        }
+        setResultsSortField(field);
+        setResultsSortOrder(nextOrder);
+        fetchResults(1, field, nextOrder, selectedQuizFilter);
+    };
+
+    const handleQuizFilterChange = (quizId) => {
+        setSelectedQuizFilter(quizId);
+        fetchResults(1, resultsSortField, resultsSortOrder, quizId);
+    };
+
+    const handleRestartTest = async (sub) => {
+        if (!window.confirm(`Are you sure you want to restart the quiz for ${sub.userId?.name || 'this student'}? This will delete their current attempt session and authorize a new attempt.`)) return;
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/restart-test`, {
+                userId: sub.userId?._id,
+                quizId: sub.quizId?._id
+            }, { headers: { Authorization: `Bearer ${user.token}` } });
+            alert('Quiz attempt reset successfully. The student can now retake this quiz.');
+            fetchResults(resultsPage, resultsSortField, resultsSortOrder, selectedQuizFilter);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error resetting quiz attempt');
+        }
+    };
+
+    const exportToCSV = () => {
+        const headers = ['Register Number', 'Name', 'Department', 'Year', 'Quiz Title', 'Score', 'Attempt', 'Time Spent (s)', 'Device Used', 'Is Suspicious', 'Submitted At'];
+        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000&sortField=${resultsSortField}&sortOrder=${resultsSortOrder}`;
+        if (selectedQuizFilter !== 'all') {
+            url += `&quizId=${selectedQuizFilter}`;
+        }
+        axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
+            .then(res => {
+                if (!res.data || !res.data.submissions) return;
+                const rows = res.data.submissions.map(sub => [
+                    `"${sub.userId?.registerNumber || ''}"`,
+                    `"${sub.userId?.name || ''}"`,
+                    `"${sub.userId?.department || ''}"`,
+                    `"${sub.userId?.year || ''}"`,
+                    `"${sub.quizId?.title || ''}"`,
+                    sub.score,
+                    sub.attemptNumber || 1,
+                    sub.timeSpent || 0,
+                    `"${sub.deviceUsed || 'Desktop'}"`,
+                    sub.isSuspicious ? 'Yes' : 'No',
+                    `"${new Date(sub.submittedAt).toLocaleString()}"`
+                ]);
+                const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.setAttribute('download', `Quiz_Results_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })
+            .catch(err => alert('Failed to export CSV: ' + err.message));
+    };
+
+    const exportToWord = () => {
+        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000&sortField=${resultsSortField}&sortOrder=${resultsSortOrder}`;
+        if (selectedQuizFilter !== 'all') {
+            url += `&quizId=${selectedQuizFilter}`;
+        }
+        axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
+            .then(res => {
+                if (!res.data || !res.data.submissions) return;
+                let tableHtml = `<table border="1" style="border-collapse: collapse; width: 100%; font-family: sans-serif;">
+                    <thead>
+                        <tr style="background-color: #f2f2f2;">
+                            <th style="padding: 8px;">Reg No</th>
+                            <th style="padding: 8px;">Name</th>
+                            <th style="padding: 8px;">Dept</th>
+                            <th style="padding: 8px;">Year</th>
+                            <th style="padding: 8px;">Quiz</th>
+                            <th style="padding: 8px;">Score</th>
+                            <th style="padding: 8px;">Attempt</th>
+                            <th style="padding: 8px;">Time Spent (s)</th>
+                            <th style="padding: 8px;">Device</th>
+                            <th style="padding: 8px;">Suspicious</th>
+                            <th style="padding: 8px;">Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                res.data.submissions.forEach(sub => {
+                    tableHtml += `<tr>
+                        <td style="padding: 8px;">${sub.userId?.registerNumber || '—'}</td>
+                        <td style="padding: 8px;">${sub.userId?.name || '—'}</td>
+                        <td style="padding: 8px;">${sub.userId?.department || '—'}</td>
+                        <td style="padding: 8px;">${sub.userId?.year || '—'}</td>
+                        <td style="padding: 8px;">${sub.quizId?.title || '—'}</td>
+                        <td style="padding: 8px; font-weight: bold; text-align: center;">${sub.score}</td>
+                        <td style="padding: 8px; text-align: center;">${sub.attemptNumber || 1}</td>
+                        <td style="padding: 8px; text-align: center;">${sub.timeSpent || 0}s</td>
+                        <td style="padding: 8px;">${sub.deviceUsed || 'Desktop'}</td>
+                        <td style="padding: 8px; color: ${sub.isSuspicious ? 'red' : 'green'};">${sub.isSuspicious ? 'Flagged' : 'Clean'}</td>
+                        <td style="padding: 8px;">${new Date(sub.submittedAt).toLocaleString()}</td>
+                    </tr>`;
+                });
+                tableHtml += '</tbody></table>';
+                const htmlContent = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head><title>Quiz Results</title></head>
+                    <body>
+                        <h2>Quiz Submission Results Report</h2>
+                        <p>Generated on: ${new Date().toLocaleString()}</p>
+                        ${tableHtml}
+                    </body>
+                    </html>`;
+                const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.setAttribute('download', `Quiz_Results_${new Date().toISOString().slice(0, 10)}.doc`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })
+            .catch(err => alert('Failed to export Word: ' + err.message));
+    };
+
+    const exportToPDF = () => {
+        let url = `${import.meta.env.VITE_API_URL}/api/admin/results?page=1&limit=100000&sortField=${resultsSortField}&sortOrder=${resultsSortOrder}`;
+        if (selectedQuizFilter !== 'all') {
+            url += `&quizId=${selectedQuizFilter}`;
+        }
+        axios.get(url, { headers: { Authorization: `Bearer ${user.token}` } })
+            .then(res => {
+                if (!res.data || !res.data.submissions) return;
+                const printWindow = window.open('', '_blank');
+                let tableRows = '';
+                res.data.submissions.forEach((sub, idx) => {
+                    tableRows += `
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; text-align: center;">${idx + 1}</td>
+                            <td style="padding: 8px;">${sub.userId?.registerNumber || '—'}</td>
+                            <td style="padding: 8px; font-weight: 600;">${sub.userId?.name || '—'}</td>
+                            <td style="padding: 8px;">${sub.userId?.department || '—'} / Yr ${sub.userId?.year || '—'}</td>
+                            <td style="padding: 8px;">${sub.quizId?.title || '—'}</td>
+                            <td style="padding: 8px; font-weight: bold; text-align: center; font-size: 14px; color: #6c63ff;">${sub.score}</td>
+                            <td style="padding: 8px; text-align: center;">${sub.attemptNumber || 1}</td>
+                            <td style="padding: 8px; text-align: center;">${sub.timeSpent ? Math.floor(sub.timeSpent / 60) + 'm ' + (sub.timeSpent % 60) + 's' : '0s'}</td>
+                            <td style="padding: 8px; text-align: center;">${sub.deviceUsed || 'Desktop'}</td>
+                            <td style="padding: 8px; text-align: center; color: ${sub.isSuspicious ? '#dc2626' : '#16a34a'}; font-weight: 600;">
+                                ${sub.isSuspicious ? 'Flagged' : 'Clean'}
+                            </td>
+                            <td style="padding: 8px; font-size: 11px;">${new Date(sub.submittedAt).toLocaleString()}</td>
+                        </tr>
+                    `;
+                });
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Quiz Results PDF Report</title>
+                        <style>
+                            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
+                            h2 { color: #111; margin-bottom: 5px; }
+                            p { color: #666; font-size: 12px; margin-top: 0; margin-bottom: 20px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+                            th { background-color: #f8f9fa; color: #4b5563; text-transform: uppercase; font-size: 10px; font-weight: 700; padding: 10px 8px; border-bottom: 2px solid #e5e7eb; text-align: left; }
+                            @media print {
+                                @page { size: landscape; margin: 15mm; }
+                                button { display: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h2>Quiz Submission Report</h2>
+                                <p>Generated on: ${new Date().toLocaleString()}</p>
+                            </div>
+                            <button onclick="window.print()" style="padding: 8px 16px; background-color: #6c63ff; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Print Report</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Reg No</th>
+                                    <th>Name</th>
+                                    <th>Dept / Year</th>
+                                    <th>Quiz</th>
+                                    <th style="text-align: center;">Score</th>
+                                    <th style="text-align: center;">Attempt</th>
+                                    <th style="text-align: center;">Time Spent</th>
+                                    <th style="text-align: center;">Device</th>
+                                    <th style="text-align: center;">Status</th>
+                                    <th>Submitted At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                        <script>
+                            window.onload = function() {
+                                setTimeout(function() {
+                                    window.print();
+                                }, 500);
+                            };
+                        </script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            })
+            .catch(err => alert('Failed to export PDF: ' + err.message));
     };
     const fetchUsers = async (page = 1) => {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/users?page=${page}&limit=10&isApproved=true`, { headers: { Authorization: `Bearer ${user.token}` } }).catch(console.error);
@@ -1760,30 +1979,117 @@ const AdminDashboard = () => {
             {/* ── RESULTS TAB ── */}
             {activeTab === 'results' && (
                 <div>
-                    <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>All Submissions ({resultsTotal} total)</h3>
-                    <div style={{ ...neu.card, overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <label style={{ fontWeight: 600, fontSize: 14, color: '#333' }}>Filter by Quiz:</label>
+                            <select
+                                value={selectedQuizFilter}
+                                onChange={e => handleQuizFilterChange(e.target.value)}
+                                style={{
+                                    padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(0,0,0,0.1)',
+                                    background: 'white', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none'
+                                }}
+                            >
+                                <option value="all">📁 All Quizzes</option>
+                                {quizzes.map(q => (
+                                    <option key={q._id} value={q._id}>📝 {q.title}</option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <button onClick={exportToCSV} className="btn btn-sm btn-ghost" style={{ border: '1px solid rgba(0,0,0,0.1)', background: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📊 Export CSV
+                            </button>
+                            <button onClick={exportToWord} className="btn btn-sm btn-ghost" style={{ border: '1px solid rgba(0,0,0,0.1)', background: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📝 Export Word
+                            </button>
+                            <button onClick={exportToPDF} className="btn btn-sm btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📄 Export PDF / Print
+                            </button>
+                        </div>
+                    </div>
+
+                    <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>
+                        Submissions List ({resultsTotal} total)
+                    </h3>
+                    
+                    <div style={{ ...neu.card, overflowX: 'auto', marginBottom: 20 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 900 }}>
                             <thead>
-                                <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.05)' }}>
-                                    {['Name', 'Quiz', 'Score', 'Suspicious', 'Submitted'].map(h => (
-                                        <th key={h} style={{ padding: '14px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                                    ))}
+                                <tr style={{ borderBottom: '2px solid rgba(0,0,0,0.05)', backgroundColor: 'rgba(0,0,0,0.01)' }}>
+                                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>#</th>
+                                    
+                                    <th 
+                                        onClick={() => handleResultsSort('registerNumber')}
+                                        style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                                    >
+                                        Reg No {resultsSortField === 'registerNumber' ? (resultsSortOrder === 'asc' ? '▲' : '▼') : ''}
+                                    </th>
+                                    
+                                    <th 
+                                        onClick={() => handleResultsSort('name')}
+                                        style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                                    >
+                                        Name {resultsSortField === 'name' ? (resultsSortOrder === 'asc' ? '▲' : '▼') : ''}
+                                    </th>
+                                    
+                                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>Dept / Year</th>
+                                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>Quiz</th>
+                                    
+                                    <th 
+                                        onClick={() => handleResultsSort('score')}
+                                        style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                                    >
+                                        Score {resultsSortField === 'score' ? (resultsSortOrder === 'asc' ? '▲' : '▼') : ''}
+                                    </th>
+                                    
+                                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>Attempt</th>
+                                    
+                                    <th 
+                                        onClick={() => handleResultsSort('timeSpent')}
+                                        style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                                    >
+                                        Time Spent {resultsSortField === 'timeSpent' ? (resultsSortOrder === 'asc' ? '▲' : '▼') : ''}
+                                    </th>
+                                    
+                                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>Device</th>
+                                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>Status</th>
+                                    
+                                    <th 
+                                        onClick={() => handleResultsSort('submittedAt')}
+                                        style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                                    >
+                                        Submitted {resultsSortField === 'submittedAt' ? (resultsSortOrder === 'asc' ? '▲' : '▼') : ''}
+                                    </th>
+                                    
+                                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#8090a0', textTransform: 'uppercase' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {results.map((r, i) => (
-                                    <tr key={r._id || i} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', transition: 'background var(--transition-fast)' }}
+                                {results.map((r, idx) => (
+                                    <tr key={r._id || idx} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', transition: 'background var(--transition-fast)' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.02)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                        <td style={{ padding: '14px 20px', fontWeight: 600 }}>{r.userId?.name || '—'}</td>
-                                        <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)' }}>{r.quizId?.title || '—'}</td>
-                                        <td style={{ padding: '14px 20px', fontWeight: 800, color: 'var(--brand-accent)', fontSize: 16 }}>{r.score}</td>
-                                        <td style={{ padding: '14px 20px' }}>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: '#777' }}>{(resultsPage - 1) * 10 + idx + 1}</td>
+                                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>{r.userId?.registerNumber || '—'}</td>
+                                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>{r.userId?.name || '—'}</td>
+                                        <td style={{ padding: '12px 16px', color: '#555' }}>
+                                            {r.userId?.department || '—'} / Yr {r.userId?.year || '—'}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', color: 'var(--color-text-secondary)' }}>{r.quizId?.title || '—'}</td>
+                                        <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--brand-accent)', fontSize: 15, textAlign: 'center' }}>{r.score}</td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600 }}>{r.attemptNumber || 1}</td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: '#555' }}>
+                                            {r.timeSpent ? `${Math.floor(r.timeSpent / 60)}m ${r.timeSpent % 60}s` : '0s'}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: '#666', fontSize: 12 }}>{r.deviceUsed || 'Desktop'}</td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                                             {r.isSuspicious
                                                 ? <span style={{ color: '#cc000a', background: 'rgba(255,69,58,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>🚩 Flagged</span>
-                                                : <span style={{ color: '#1a7a3a', fontSize: 12 }}>✓ Clean</span>}
+                                                : <span style={{ color: '#1a7a3a', background: 'rgba(52,199,89,0.1)', padding: '2px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700 }}>✓ Clean</span>}
                                         </td>
-                                        <td style={{ padding: '14px 20px', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                                        <td style={{ padding: '12px 16px', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
                                             {(() => {
                                                 try {
                                                     return new Date(r.submittedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -1792,9 +2098,18 @@ const AdminDashboard = () => {
                                                 }
                                             })()}
                                         </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => handleRestartTest(r)}
+                                                className="btn btn-sm btn-ghost"
+                                                style={{ border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', background: 'rgba(239,68,68,0.05)', fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                            >
+                                                🔄 Restart Test
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
-                                {results.length === 0 && <tr><td colSpan="5" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No submissions yet.</td></tr>}
+                                {results.length === 0 && <tr><td colSpan="12" style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-secondary)' }}>No submissions found matching criteria.</td></tr>}
                             </tbody>
                         </table>
                     </div>

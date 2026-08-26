@@ -25,6 +25,6 @@ const submissionSchema = new mongoose.Schema({
 submissionSchema.index({ quizId: 1, score: -1, submittedAt: 1 });
 submissionSchema.index({ quizId: 1, score: -1 });
 submissionSchema.index({ quizId: 1, submittedAt: 1 });
-submissionSchema.index({ userId: 1, quizId: 1 }, { unique: true });
+submissionSchema.index({ userId: 1, quizId: 1, attemptNumber: 1 }, { unique: true });
 
 export default mongoose.model('Submission', submissionSchema);

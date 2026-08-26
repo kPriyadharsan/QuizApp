@@ -179,27 +179,114 @@ export const deleteQuiz = async (req, res) => {
 
 export const getResults = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const { quizId, sortField, sortOrder, limit: limitQuery, page: pageQuery } = req.query;
+        const page = parseInt(pageQuery) || 1;
+        const limit = parseInt(limitQuery) || 10;
         const skip = (page - 1) * limit;
 
-        const total = await Submission.countDocuments({});
-        const submissions = await Submission.find({})
-            .populate('userId', 'name email score')
+        const filter = {};
+        if (quizId) {
+            filter.quizId = quizId;
+        }
+
+        // Fetch all matching submissions populated
+        let submissions = await Submission.find(filter)
+            .populate('userId', 'name email registerNumber year department college')
             .populate('quizId', 'title')
-            .sort({ score: -1, submittedAt: 1 })
-            .skip(skip)
-            .limit(limit)
             .lean();
 
+        // Sort in memory to easily support nested fields sorting (name, registerNumber, score, timeSpent, submittedAt)
+        if (sortField) {
+            const order = sortOrder === 'desc' ? -1 : 1;
+            submissions.sort((a, b) => {
+                let valA, valB;
+                if (sortField === 'name') {
+                    valA = a.userId?.name || '';
+                    valB = b.userId?.name || '';
+                } else if (sortField === 'registerNumber') {
+                    valA = a.userId?.registerNumber || '';
+                    valB = b.userId?.registerNumber || '';
+                } else if (sortField === 'score') {
+                    valA = a.score || 0;
+                    valB = b.score || 0;
+                } else if (sortField === 'timeSpent') {
+                    valA = a.timeSpent || 0;
+                    valB = b.timeSpent || 0;
+                } else {
+                    valA = new Date(a.submittedAt).getTime() || 0;
+                    valB = new Date(b.submittedAt).getTime() || 0;
+                }
+
+                if (typeof valA === 'string') {
+                    return valA.localeCompare(valB, undefined, { sensitivity: 'base' }) * order;
+                }
+                if (valA < valB) return -1 * order;
+                if (valA > valB) return 1 * order;
+                return 0;
+            });
+        } else {
+            // Default sort by submittedAt desc
+            submissions.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+        }
+
+        const total = submissions.length;
+        const paginatedSubmissions = submissions.slice(skip, skip + limit);
+
         res.json({
-            submissions,
+            submissions: paginatedSubmissions,
             total,
             page,
             pages: Math.ceil(total / limit)
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching results', error: error.message });
+    }
+};
+
+export const restartQuizAttempt = async (req, res) => {
+    try {
+        const { userId, quizId } = req.body;
+        if (!userId || !quizId) {
+            return res.status(400).json({ message: 'User ID and Quiz ID are required' });
+        }
+
+        // Delete active/completed attempt sessions
+        await Attempt.deleteMany({ userId, quizId });
+        await QuizState.deleteMany({ userId, quizId });
+
+        // Fetch User and increment allowed attempts for this quiz
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Find how many submissions the user already has
+        const submissionCount = await Submission.countDocuments({ userId, quizId });
+
+        // Initialize allowedQuizzesAttempts map if not present
+        if (!user.allowedQuizzesAttempts) {
+            user.allowedQuizzesAttempts = new Map();
+        }
+
+        // Set allowed attempts to current submissions + 1
+        if (user.allowedQuizzesAttempts instanceof Map) {
+            user.allowedQuizzesAttempts.set(quizId.toString(), submissionCount + 1);
+        } else {
+            user.allowedQuizzesAttempts = {
+                ...user.allowedQuizzesAttempts,
+                [quizId.toString()]: submissionCount + 1
+            };
+        }
+        
+        user.markModified('allowedQuizzesAttempts');
+        await user.save();
+
+        res.json({ 
+            message: 'Quiz attempt reset successfully. The student can now retake the quiz.',
+            allowedAttempts: submissionCount + 1
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error resetting quiz attempt', error: error.message });
     }
 };
 

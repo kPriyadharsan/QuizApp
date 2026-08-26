@@ -439,8 +439,9 @@ export const startQuiz = async (req, res) => {
             await QuizState.deleteMany({ userId: req.user.id, quizId: quiz._id });
         } else {
             // Check if user already submitted
-            const existingSubmission = await Submission.exists({ userId: req.user.id, quizId: quiz._id });
-            if (existingSubmission) {
+            const submissionCount = await Submission.countDocuments({ userId: req.user.id, quizId: quiz._id });
+            const allowedAttempts = (user.allowedQuizzesAttempts instanceof Map ? user.allowedQuizzesAttempts.get(actualQuizIdStr) : user.allowedQuizzesAttempts?.[actualQuizIdStr]) || 1;
+            if (submissionCount >= allowedAttempts) {
                 return res.status(400).json({ message: 'You have already submitted this quiz' });
             }
 
@@ -449,7 +450,7 @@ export const startQuiz = async (req, res) => {
             if (existingAttempt) {
                 if (existingAttempt.status === 'IN_PROGRESS' || existingAttempt.status === 'CREATED') {
                     return res.status(400).json({ message: 'Quiz already started. Please resume.' });
-                } else {
+                } else if (submissionCount >= allowedAttempts) {
                     return res.status(400).json({ message: 'You have already attempted this quiz.' });
                 }
             }
@@ -695,8 +696,14 @@ export const submitQuiz = async (req, res) => {
 
         const questions = quizCache.get(actualQuizIdStr).questions;
 
+        const previousSubmissionsCount = await Submission.countDocuments({ userId: req.user.id, quizId: quiz._id });
+
+        // 2. Use pre-validated attempt from session middleware
+        const attempt = req.attempt;
+        const currentAttemptNo = (attempt.status === 'SUBMITTED' || attempt.status === 'EXPIRED') ? previousSubmissionsCount : previousSubmissionsCount + 1;
+
         // 1. Locate existing submission first to make this idempotent
-        const existingSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+        const existingSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id, attemptNumber: currentAttemptNo });
         if (existingSub) {
             return res.status(200).json({ 
                 message: 'Quiz submitted successfully. Results will be published later.', 
@@ -705,16 +712,13 @@ export const submitQuiz = async (req, res) => {
             });
         }
 
-        // 2. Use pre-validated attempt from session middleware
-        const attempt = req.attempt;
-
         if (isSuspicious) {
             console.warn(`🚨 [Security Alert] Suspicious exam submission flagged! User: ${userIdStr}, Attempt: ${attempt._id}, Tab switches: ${tabSwitches}, Fullscreen exits: ${fullscreenExits} (IP: ${req.ip || ''})`);
         }
 
         // Check if already finalized (to prevent double submissions)
         if (attempt.status === 'SUBMITTED' || attempt.status === 'EXPIRED') {
-            const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+            const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id, attemptNumber: currentAttemptNo });
             if (finalSub) {
                 return res.status(200).json({ 
                     message: 'Quiz submitted successfully. Results will be published later.', 
@@ -765,7 +769,7 @@ export const submitQuiz = async (req, res) => {
         if (!updatedAttempt) {
             // A concurrent request won the race and updated status!
             // Retrieve already finalized submission
-            const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+            const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id, attemptNumber: currentAttemptNo });
             if (finalSub) {
                 return res.status(200).json({ 
                     message: 'Quiz submitted successfully. Results will be published later.', 
@@ -777,7 +781,6 @@ export const submitQuiz = async (req, res) => {
         }
 
         // 5. Evaluate score and create Submission
-        const previousSubmissionsCount = await Submission.countDocuments({ userId: req.user.id, quizId: quiz._id });
 
         const answersObj = Object.fromEntries(answersMap);
         const { score, evaluatedAnswers } = evaluateAttemptScore(answersObj, questions, quiz);
@@ -806,7 +809,7 @@ export const submitQuiz = async (req, res) => {
         } catch (err) {
             if (err.code === 11000) {
                 // Catch unique index collision and return existing submission (extremely safe/idempotent)
-                const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id });
+                const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id, attemptNumber: currentAttemptNo });
                 return res.status(200).json({ 
                     message: 'Quiz submitted successfully. Results will be published later.', 
                     total: questions.length, 
@@ -845,7 +848,7 @@ export const submitQuiz = async (req, res) => {
     } catch (error) {
         if (error.code === 11000) {
             try {
-                const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id }).lean();
+                const finalSub = await Submission.findOne({ userId: req.user.id, quizId: quiz._id, attemptNumber: currentAttemptNo }).lean();
                 const responsePayload = {
                     message: 'Quiz submitted successfully.',
                     total: questions.length,

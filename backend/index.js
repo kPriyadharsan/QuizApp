@@ -107,6 +107,14 @@ mongoose
     .then(async () => {
         console.log("Connected to MongoDB");
         
+        // Drop legacy unique index on submissions if exists
+        try {
+            await mongoose.connection.collection('submissions').dropIndex('userId_1_quizId_1');
+            console.log("❇️ Legacy unique index 'userId_1_quizId_1' dropped successfully");
+        } catch (e) {
+            // Index might not exist, ignore
+        }
+
         // Seed Admin user
         try {
             const adminEmail = process.env.ADMIN_EMAIL || "dharsan@admin.com";

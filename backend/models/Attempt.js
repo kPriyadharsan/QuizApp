@@ -22,7 +22,6 @@ const attemptSchema = new mongoose.Schema({
     },
     deviceUsed: {
         type: String,
-        enum: ['Mobile', 'Tablet', 'Desktop'],
         default: 'Desktop'
     },
     startedAt: { 

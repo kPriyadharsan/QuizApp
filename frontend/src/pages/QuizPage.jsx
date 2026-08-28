@@ -7,8 +7,39 @@ import { io } from 'socket.io-client';
 
 const getDeviceUsed = () => {
     const ua = navigator.userAgent;
-    if (/tablet|ipad|playbook|silk/i.test(ua)) return 'Tablet';
-    if (/mobile|iphone|ipod|android|blackberry|iemobile|opera mini/i.test(ua)) return 'Mobile';
+    
+    // Check if it's an Android device and parse the exact model if available
+    if (/android/i.test(ua)) {
+        const match = ua.match(/\(([^)]+)\)/);
+        if (match && match[1]) {
+            const parts = match[1].split(';');
+            for (let part of parts) {
+                part = part.trim();
+                if (!part) continue;
+                // Skip generic descriptors or language locales
+                if (/linux|android|wv|direct|u|platform/i.test(part) && part.length <= 10) continue;
+                if (/^[a-z]{2}(-[a-z]{2,4})?$/i.test(part)) continue; // e.g. en-us, zh-cn
+                
+                // If it contains "Build/", strip everything after it (e.g. "SM-G981B Build/...")
+                if (/build/i.test(part)) {
+                    return part.split(/\s+Build\//i)[0].trim();
+                }
+                return part;
+            }
+        }
+        return 'Android Device';
+    }
+    
+    // Check for Apple Mobile devices
+    if (/ipad/i.test(ua)) return 'iPad';
+    if (/iphone/i.test(ua)) return 'iPhone';
+    if (/ipod/i.test(ua)) return 'iPod';
+    
+    // Desktop Operating Systems
+    if (/macintosh/i.test(ua)) return 'Mac';
+    if (/windows/i.test(ua)) return 'Windows PC';
+    if (/linux/i.test(ua)) return 'Linux PC';
+    
     return 'Desktop';
 };
 

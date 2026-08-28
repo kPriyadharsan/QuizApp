@@ -16,7 +16,7 @@ const submissionSchema = new mongoose.Schema({
     startedAt: { type: Date },
     endedAt: { type: Date },
     timeSpent: { type: Number },
-    deviceUsed: { type: String, enum: ['Mobile', 'Tablet', 'Desktop'], default: 'Desktop' },
+    deviceUsed: { type: String, default: 'Desktop' },
     submittedAt: { type: Date, default: Date.now },
     isPreview: { type: Boolean, default: false }
 }, { timestamps: true });

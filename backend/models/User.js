@@ -19,11 +19,10 @@ const userSchema = new mongoose.Schema({
     profileImage: { type: String, default: '' }
 }, { timestamps: true });
 
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function() {
     if (this.role === 'admin') {
         this.isApproved = true;
     }
-    next();
 });
 
 export default mongoose.model('User', userSchema);

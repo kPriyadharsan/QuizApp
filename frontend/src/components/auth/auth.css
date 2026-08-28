@@ -241,7 +241,7 @@
     appearance: none;
 }
 
-.saas-input::placeholder { color: #94a3b8; }
+.saas-input::placeholder { color: #64748b; }
 
 .saas-input.has-eye { padding-right: 48px; }
 
@@ -613,9 +613,9 @@
         padding: 10px 16px;
         border: none;
         background: none;
-        color: #64748b;
+        color: #334155;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
         cursor: pointer;
         border-radius: 10px;
         transition: color 0.3s ease;

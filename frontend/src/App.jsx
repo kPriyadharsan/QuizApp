@@ -190,38 +190,37 @@ const Header = () => {
                 <span className="dev-bracket">&gt;</span>
               </div>
             ) : (
-              /* User Navigation */
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/profile')}>Profile</button>
-                <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/my-results')}>Results</button>
-                <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
+              /* User Info block (no direct navigation buttons) */
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {user && user.profileImage ? (
+                  <img 
+                    src={user.profileImage} 
+                    alt="Profile Avatar" 
+                    style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(0,0,0,0.1)' }} 
+                  />
+                ) : (
+                  <div style={{ 
+                    width: 32, height: 32, borderRadius: '50%', 
+                    background: '#6c63ff', display: 'flex', alignItems: 'center', 
+                    justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: 13 
+                  }}>
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
+                <button 
+                  onClick={logout} 
+                  style={{ 
+                    background: 'none', border: 'none', fontSize: 13, 
+                    fontWeight: 600, color: '#666', cursor: 'pointer',
+                    padding: '6px 12px', borderRadius: 8, transition: 'all 0.2s',
+                  }}
+                  onMouseOver={(e) => e.target.style.background = 'rgba(0,0,0,0.04)'}
+                  onMouseOut={(e) => e.target.style.background = 'none'}
+                >
+                  Sign out
+                </button>
               </div>
             )}
-
-            <div style={{ width: 1, height: 24, background: 'rgba(0,0,0,0.1)', margin: '0 8px' }} />
-
-            {/* User Chip */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ 
-                width: 28, height: 28, borderRadius: '50%', 
-                background: '#111', display: 'flex', alignItems: 'center', 
-                justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: 12 
-              }}>
-                {user.name?.charAt(0).toUpperCase() || 'U'}
-              </div>
-              <button 
-                onClick={logout} 
-                style={{ 
-                  background: 'none', border: 'none', fontSize: 13, 
-                  fontWeight: 500, color: '#666', cursor: 'pointer',
-                  padding: '4px 8px', borderRadius: 6, transition: 'background 0.2s',
-                }}
-                onMouseOver={(e) => e.target.style.background = 'rgba(0,0,0,0.05)'}
-                onMouseOut={(e) => e.target.style.background = 'none'}
-              >
-                Sign out
-              </button>
-            </div>
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -242,32 +241,53 @@ const Header = () => {
             <span className="dev-bracket">&gt;</span>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-            <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/')}>Dashboard</button>
-            <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/profile')}>Profile</button>
-            <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/my-results')}>Results</button>
-            <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
+          /* User Profile Header Card inside sidebar toggler */
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: 16 }}>
+            {user && (
+              <div style={{ 
+                display: 'flex', alignItems: 'center', gap: 12, 
+                padding: '16px', background: '#f8fafc', borderRadius: 16, 
+                border: '1px solid rgba(0,0,0,0.05)', width: '100%' 
+              }}>
+                {user.profileImage ? (
+                  <img 
+                    src={user.profileImage} 
+                    alt="Profile Avatar" 
+                    style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }} 
+                  />
+                ) : (
+                  <div style={{ 
+                    width: 44, height: 44, borderRadius: '50%', background: '#6c63ff', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                    color: 'white', fontWeight: 700, fontSize: 16, boxShadow: '0 2px 8px rgba(108,99,255,0.15)'
+                  }}>
+                    {user.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</span>
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{user.registerNumber}</span>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', width: '100%' }}>
+              <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/')}>Dashboard</button>
+              <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/profile')}>My Profile</button>
+              <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/my-results')}>My Results</button>
+              <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
+            </div>
           </div>
         )}
 
-        <div style={{ height: 1, background: 'rgba(0,0,0,0.1)', margin: '8px 0' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: 14 }}>
-            {user.name?.charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>{user.name}</div>
-            <div style={{ fontSize: 13, color: '#666' }}>{user.email}</div>
-          </div>
-        </div>
+        <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '8px 0' }} />
 
         <button 
           onClick={logout} 
           style={{ 
-            marginTop: 'auto', padding: '16px', borderRadius: 12,
+            marginTop: 'auto', padding: '14px', borderRadius: 12,
             background: 'rgba(0,0,0,0.04)', color: '#333', border: 'none',
-            fontSize: 16, fontWeight: 600, cursor: 'pointer'
+            fontSize: 15, fontWeight: 700, cursor: 'pointer', width: '100%'
           }}
         >
           Sign Out

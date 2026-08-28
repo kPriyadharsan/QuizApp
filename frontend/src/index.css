@@ -457,7 +457,7 @@ body {
 
 /* Mobile Hamburger & Menu */
 .mobile-menu-btn {
-  display: none;
+  display: flex;
   background: none; border: none; cursor: pointer;
   padding: 8px; border-radius: 8px; color: #111;
   transition: background 0.2s ease;
@@ -486,7 +486,6 @@ body {
 
 @media (max-width: 768px) {
   .desktop-nav { display: none; }
-  .mobile-menu-btn { display: flex; }
 }
 
 

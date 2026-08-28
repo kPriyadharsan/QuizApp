@@ -439,7 +439,7 @@ const Auth = () => {
                                             <a 
                                                 href="#" 
                                                 onClick={(e) => { e.preventDefault(); setIsForgot(true); setForgotStep(1); setForgotError(''); setForgotSuccess(''); }} 
-                                                style={{ color: '#00d4e8', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+                                                style={{ color: '#6c63ff', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
                                             >
                                                 Forgot Password?
                                             </a>
@@ -477,7 +477,7 @@ const Auth = () => {
                                     </p>
 
                                     {forgotError && <div className="auth-error">{forgotError}</div>}
-                                    {forgotSuccess && <div className="auth-error" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#34d399' }}>{forgotSuccess}</div>}
+                                    {forgotSuccess && <div className="auth-error" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981' }}>{forgotSuccess}</div>}
 
                                     {forgotStep === 1 ? (
                                         <form className="auth-form" onSubmit={handleRequestReset} noValidate>

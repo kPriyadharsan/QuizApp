@@ -77,8 +77,7 @@ const ProfilePage = () => {
 
     return (
         <motion.div 
-            className="max-w-[560px] w-full mx-auto flex flex-col gap-6"
-            style={{ padding: '16px clamp(12px, 3vw, 20px)' }}
+            className="max-w-[520px] w-full mx-auto flex flex-col gap-5 px-3 sm:px-6 py-4"
             variants={containerVariants}
             initial="hidden"
             animate="show"
@@ -94,10 +93,7 @@ const ProfilePage = () => {
             </div>
 
             {/* Profile Settings Card */}
-            <div 
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-6 w-full"
-                style={{ padding: 'clamp(16px, 5vw, 32px)' }}
-            >
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8 flex flex-col gap-6 w-full">
                 <div className="flex items-center gap-3">
                     <div className="bg-[#6c63ff]/10 p-2.5 rounded-xl text-[#6c63ff] flex items-center justify-center">
                         <User size={22} />
@@ -109,21 +105,21 @@ const ProfilePage = () => {
                 </div>
 
                 <form onSubmit={handleSaveProfile} noValidate className="flex flex-col gap-5">
-                    {/* Base64 Avatar Selector */}
-                    <div className="flex flex-col items-center gap-2.5">
+                    {/* Base64 Avatar Selector with always-visible camera badge */}
+                    <div className="flex flex-col items-center gap-2">
                         <div 
                             onClick={() => fileInputRef.current.click()}
-                            className="relative w-24 h-24 rounded-full border-4 border-white shadow-md bg-blue-50 cursor-pointer overflow-hidden flex items-center justify-center group"
+                            className="relative w-24 h-24 rounded-full border-4 border-white shadow-md bg-indigo-50 cursor-pointer flex items-center justify-center group"
                         >
                             {profileImg ? (
-                                <img src={profileImg} alt="Avatar Preview" className="w-full h-full object-cover" />
+                                <img src={profileImg} alt="Avatar Preview" className="w-full h-full object-cover rounded-full" />
                             ) : (
                                 <span className="text-3xl font-extrabold text-[#6c63ff]">
                                     {profileName?.charAt(0).toUpperCase() || 'U'}
                                 </span>
                             )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Camera size={18} className="text-white" />
+                            <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#6c63ff] border-2 border-white shadow-md flex items-center justify-center text-white transition-transform group-hover:scale-110">
+                                <Camera size={14} />
                             </div>
                         </div>
                         <input 
@@ -142,7 +138,7 @@ const ProfilePage = () => {
                         <input 
                             id="profile-name"
                             type="text"
-                            className="w-full px-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
+                            className="w-full h-[48px] sm:h-[52px] px-4 text-sm sm:text-base font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all"
                             value={profileName}
                             onChange={e => setProfileName(e.target.value)}
                             required
@@ -156,39 +152,38 @@ const ProfilePage = () => {
                             id="profile-phone"
                             type="tel"
                             inputMode="tel"
-                            className="w-full px-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
+                            className="w-full h-[48px] sm:h-[52px] px-4 text-sm sm:text-base font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all"
                             value={profilePhone}
                             onChange={e => setProfilePhone(e.target.value)}
                             placeholder="Enter your phone number"
                         />
                     </div>
 
-                    {/* Read-Only: academic info cards */}
+                    {/* Read-Only: academic info card */}
                     <div className="border-t border-gray-100 pt-5 flex flex-col gap-3">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Academic Data (Read-Only)</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Email address</span>
-                                <span className="text-sm font-semibold text-gray-700 truncate" title={user?.email}>{user?.email}</span>
-                            </div>
-                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Register Number</span>
-                                <span className="text-sm font-semibold text-gray-700">{user?.registerNumber}</span>
-                            </div>
-                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Department</span>
-                                <span className="text-sm font-semibold text-gray-700">{user?.department}</span>
-                            </div>
-                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Academic Year</span>
-                                <span className="text-sm font-semibold text-gray-700">{user?.year} Year</span>
-                            </div>
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Academic Profile</h4>
+                            <span className="px-2.5 py-0.5 rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Read-Only</span>
                         </div>
-                        <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">College</span>
-                            <span className="text-sm font-semibold text-gray-700">
-                                {user?.college === 'Others' ? user?.otherCollegeName : 'SVHEC'}
-                            </span>
+                        <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
+                                <span className="text-xs font-semibold text-gray-500">Email Address</span>
+                                <span className="text-xs sm:text-sm font-bold text-gray-800 truncate max-w-[180px] sm:max-w-[260px]" title={user?.email}>{user?.email}</span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
+                                <span className="text-xs font-semibold text-gray-500">Register Number</span>
+                                <span className="text-xs sm:text-sm font-bold text-gray-800">{user?.registerNumber}</span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
+                                <span className="text-xs font-semibold text-gray-500">Department & Year</span>
+                                <span className="text-xs sm:text-sm font-bold text-gray-800">{user?.department} • Year {user?.year}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-gray-500">Institution</span>
+                                <span className="text-xs sm:text-sm font-bold text-gray-800">
+                                    {user?.college === 'Others' ? user?.otherCollegeName : 'SVHEC'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -208,7 +203,7 @@ const ProfilePage = () => {
                         <button 
                             type="submit" 
                             disabled={savingProfile}
-                            className="w-full py-3.5 rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-bold text-sm cursor-pointer shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                            className="w-full h-[50px] sm:h-[54px] rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-extrabold text-xs sm:text-sm tracking-wider uppercase cursor-pointer shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
                             <Save size={16} /> {savingProfile ? 'Saving changes...' : 'Save Profile Changes'}
                         </button>

@@ -202,45 +202,49 @@ const UserDashboard = () => {
                                 return (
                                     <motion.div 
                                         key={quiz._id} 
-                                        whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(0,0,0,0.04)' }}
-                                        className="bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all shadow-sm"
-                                        style={{ minHeight: '240px', padding: '24px' }}
+                                        whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(0,0,0,0.06)' }}
+                                        className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all shadow-sm gap-4"
                                     >
                                         {isActive && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-500" />}
                                         
-                                        <div>
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isActive ? 'bg-green-50 text-green-500' : 'bg-gray-50 text-gray-400'}`}>
-                                                    {isActive ? <CheckCircle2 size={20} strokeWidth={2.5} /> : <CalendarDays size={20} strokeWidth={2} />}
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex justify-between items-center">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive ? 'bg-green-50 text-green-500' : 'bg-gray-50 text-gray-400'}`}>
+                                                    {isActive ? <CheckCircle2 size={18} strokeWidth={2.5} /> : <CalendarDays size={18} strokeWidth={2} />}
                                                 </div>
                                                 
-                                                {isActive ? (
-                                                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold uppercase tracking-wider">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                                        Live
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2.5 py-1 rounded-md bg-slate-100 font-mono text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                                        #{quiz.quizCode}
                                                     </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-xs font-semibold">
-                                                        Upcoming
-                                                    </span>
-                                                )}
+                                                    {isActive ? (
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-[11px] font-extrabold uppercase tracking-wider">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                            Live
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2.5 py-1 bg-gray-50 text-gray-500 rounded-full text-[11px] font-bold uppercase tracking-wider">
+                                                            Upcoming
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             
-                                            <h3 className="text-lg font-bold text-gray-900 mb-2 leading-snug line-clamp-2">{quiz.title}</h3>
+                                            <h3 className="text-base sm:text-lg font-extrabold text-gray-900 leading-snug line-clamp-2">{quiz.title}</h3>
                                             
-                                            <div className="flex flex-col gap-1.5 mb-6">
-                                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-medium">
-                                                    <Clock size={14} /> Duration: {quiz.duration} Mins
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-semibold">
+                                                    <Clock size={14} className="text-gray-400" /> Duration: {quiz.duration} Mins
                                                 </div>
                                                 {ti && (
-                                                    <div className={`flex items-center gap-2 text-xs sm:text-sm font-semibold ${ti.active ? 'text-green-500' : 'text-gray-400'}`}>
+                                                    <div className={`flex items-center gap-2 text-xs sm:text-sm font-semibold ${ti.active ? 'text-green-600' : 'text-gray-400'}`}>
                                                         <CalendarDays size={14} /> {ti.text}
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                         
-                                        <div className="w-full">
+                                        <div className="w-full pt-1">
                                             {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
                                                 <button 
                                                     disabled

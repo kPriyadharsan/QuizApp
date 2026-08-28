@@ -243,14 +243,14 @@ const UserDashboard = () => {
                                             {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
                                                 <button 
                                                     disabled
-                                                    className="w-full py-3 rounded-xl bg-red-50 text-red-500 border border-red-100 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className="w-full h-[46px] rounded-xl bg-red-50 text-red-500 border border-red-100 font-extrabold text-xs tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     ❌ Flagged / Evicted
                                                 </button>
                                             ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
                                                 <button 
                                                     disabled
-                                                    className="w-full py-3 rounded-xl bg-green-50 text-green-700 border border-green-100 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className="w-full h-[46px] rounded-xl bg-green-50 text-green-700 border border-green-100 font-extrabold text-xs tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     ✓ Completed
                                                 </button>
@@ -260,14 +260,14 @@ const UserDashboard = () => {
                                                         await triggerFullscreen();
                                                         navigate(`/quiz/${quiz.quizCode}`);
                                                     }}
-                                                    className="w-full py-3 rounded-xl bg-[#6c63ff] text-white font-bold text-sm cursor-pointer shadow-md hover:bg-[#5b52e6] hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                                    className="w-full h-[46px] rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-extrabold text-xs tracking-wider uppercase cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={16} strokeWidth={2.5} />
+                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={14} strokeWidth={2.5} />
                                                 </button>
                                             ) : (
                                                 <button 
                                                     disabled
-                                                    className="w-full py-3 rounded-xl bg-gray-50 text-gray-400 border border-gray-100 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className="w-full h-[46px] rounded-xl bg-gray-50 text-gray-400 border border-gray-100 font-extrabold text-xs tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     Locked (Upcoming)
                                                 </button>

@@ -190,32 +190,50 @@ const Header = () => {
                 <span className="dev-bracket">&gt;</span>
               </div>
             ) : (
-              /* User Info block (no direct navigation buttons) */
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {user && user.profileImage ? (
-                  <img 
-                    src={user.profileImage} 
-                    alt="Profile Avatar" 
-                    style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(0,0,0,0.1)' }} 
-                  />
-                ) : (
-                  <div style={{ 
-                    width: 32, height: 32, borderRadius: '50%', 
-                    background: '#6c63ff', display: 'flex', alignItems: 'center', 
-                    justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: 13 
-                  }}>
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                )}
+              /* User Navigation (Desktop Layout) */
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#4b5563', padding: '6px 12px', borderRadius: 8, transition: 'all 0.2s' }} onClick={() => navigate('/')}>Dashboard</button>
+                  <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#4b5563', padding: '6px 12px', borderRadius: 8, transition: 'all 0.2s' }} onClick={() => navigate('/my-results')}>Results</button>
+                  <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#4b5563', padding: '6px 12px', borderRadius: 8, transition: 'all 0.2s' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
+                </div>
+                
+                <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.08)' }} />
+                
+                {/* User Info chip clickable to go to Profile */}
+                <div 
+                  onClick={() => navigate('/profile')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 8px', borderRadius: 10, transition: 'background 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                >
+                  {user && user.profileImage ? (
+                    <img 
+                      src={user.profileImage} 
+                      alt="Profile Avatar" 
+                      style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(0,0,0,0.08)' }} 
+                    />
+                  ) : (
+                    <div style={{ 
+                      width: 30, height: 30, borderRadius: '50%', 
+                      background: '#6c63ff', display: 'flex', alignItems: 'center', 
+                      justifyContent: 'center', color: 'white', fontWeight: 650, fontSize: 12 
+                    }}>
+                      {user?.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>{user?.name?.split(' ')[0]}</span>
+                </div>
+
                 <button 
                   onClick={logout} 
                   style={{ 
-                    background: 'none', border: 'none', fontSize: 13, 
-                    fontWeight: 600, color: '#666', cursor: 'pointer',
+                    background: 'rgba(220,38,38,0.05)', border: 'none', fontSize: 13, 
+                    fontWeight: 600, color: '#dc2626', cursor: 'pointer',
                     padding: '6px 12px', borderRadius: 8, transition: 'all 0.2s',
                   }}
-                  onMouseOver={(e) => e.target.style.background = 'rgba(0,0,0,0.04)'}
-                  onMouseOut={(e) => e.target.style.background = 'none'}
+                  onMouseOver={(e) => e.target.style.background = 'rgba(220,38,38,0.1)'}
+                  onMouseOut={(e) => e.target.style.background = 'rgba(220,38,38,0.05)'}
                 >
                   Sign out
                 </button>

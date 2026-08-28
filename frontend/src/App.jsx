@@ -244,11 +244,17 @@ const Header = () => {
           /* User Profile Header Card inside sidebar toggler */
           <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: 16 }}>
             {user && (
-              <div style={{ 
-                display: 'flex', alignItems: 'center', gap: 12, 
-                padding: '16px', background: '#f8fafc', borderRadius: 16, 
-                border: '1px solid rgba(0,0,0,0.05)', width: '100%' 
-              }}>
+              <div 
+                onClick={() => navigate('/profile')}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: 12, 
+                  padding: '16px', background: '#f8fafc', borderRadius: 16, 
+                  border: '1px solid rgba(0,0,0,0.05)', width: '100%',
+                  cursor: 'pointer', transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#f8fafc'}
+              >
                 {user.profileImage ? (
                   <img 
                     src={user.profileImage} 
@@ -273,7 +279,6 @@ const Header = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', width: '100%' }}>
               <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/')}>Dashboard</button>
-              <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/profile')}>My Profile</button>
               <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/my-results')}>My Results</button>
               <button className="nav-link" style={{ paddingLeft: 8, width: '100%', textAlign: 'left', fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
             </div>

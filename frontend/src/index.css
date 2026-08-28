@@ -74,10 +74,10 @@ body {
 .page-wrap {
   max-width: var(--container);
   margin: 0 auto;
-  padding: 28px 20px 60px;
+  padding: 16px 16px 40px;
 }
-@media (min-width: 640px) { .page-wrap { padding: 36px 28px 60px; } }
-@media (min-width: 1024px) { .page-wrap { padding: 40px 32px 80px; } }
+@media (min-width: 640px) { .page-wrap { padding: 28px 24px 60px; } }
+@media (min-width: 1024px) { .page-wrap { padding: 36px 32px 80px; } }
 
 /* ── Glass / Frosted ─────────────────────────── */
 .glass {

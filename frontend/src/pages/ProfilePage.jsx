@@ -77,7 +77,7 @@ const ProfilePage = () => {
 
     return (
         <motion.div 
-            className="max-w-[520px] w-full mx-auto flex flex-col gap-5 px-3 sm:px-6 py-4"
+            className="max-w-[520px] w-full mx-auto flex flex-col gap-5"
             variants={containerVariants}
             initial="hidden"
             animate="show"

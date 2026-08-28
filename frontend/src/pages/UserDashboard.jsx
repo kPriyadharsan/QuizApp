@@ -101,8 +101,7 @@ const UserDashboard = () => {
 
     return (
         <motion.div 
-            className="w-full flex flex-col gap-6"
-            style={{ padding: '0 clamp(12px, 3vw, 20px)' }}
+            className="w-full flex flex-col gap-5 sm:gap-6"
             variants={containerVariants}
             initial="hidden"
             animate="show"

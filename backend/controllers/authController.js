@@ -194,7 +194,17 @@ export const resetPassword = async (req, res) => {
 export const updateProfile = async (req, res) => {
     const { name, phoneNumber, profileImage } = req.body;
     try {
-        const user = await User.findById(req.user.id);
+        const updateFields = {};
+        if (name !== undefined && name.trim() !== '') updateFields.name = name.trim();
+        if (phoneNumber !== undefined) updateFields.phoneNumber = phoneNumber.trim();
+        if (profileImage !== undefined) updateFields.profileImage = profileImage;
+
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: updateFields },
+            { new: true, runValidators: false }
+        );
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -202,12 +212,6 @@ export const updateProfile = async (req, res) => {
         if (user.isBlocked) {
             return res.status(403).json({ message: 'Your account has been blocked.', blocked: true });
         }
-
-        if (name !== undefined) user.name = name;
-        if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
-        if (profileImage !== undefined) user.profileImage = profileImage;
-
-        await user.save();
 
         res.json({
             _id: user._id,
@@ -224,6 +228,7 @@ export const updateProfile = async (req, res) => {
             profileImage: user.profileImage || '',
         });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error("❌ Profile Update Error:", error);
+        res.status(500).json({ message: 'Failed to update profile: ' + error.message });
     }
 };

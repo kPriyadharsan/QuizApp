@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, KeyRound, Clock, CalendarDays, Activity, Medal, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, KeyRound, Clock, CalendarDays, Activity, Medal, CheckCircle2, User, Phone, Camera, Save } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 const triggerFullscreen = async () => {
@@ -41,7 +41,18 @@ const UserDashboard = () => {
     const [joinCode, setJoinCode] = useState('');
     const [joining, setJoining] = useState(false);
     const [joinError, setJoinError] = useState('');
-    const { user } = useAuth();
+    
+    /* Profile Editing States */
+    const [dashboardView, setDashboardView] = useState('quizzes'); // 'quizzes' or 'profile'
+    const { user, setUser } = useAuth();
+    const [profileName, setProfileName] = useState(user?.name || '');
+    const [profilePhone, setProfilePhone] = useState(user?.phoneNumber || '');
+    const [profileImg, setProfileImg] = useState(user?.profileImage || '');
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [profileError, setProfileError] = useState('');
+    const [profileSuccess, setProfileSuccess] = useState('');
+    
+    const fileInputRef = useRef(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -65,6 +76,58 @@ const UserDashboard = () => {
         } catch (err) {
             setJoinError(err.response?.data?.message || 'Invalid code or quiz not available.');
         } finally { setJoining(false); }
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Image size limit: 2MB max
+        if (file.size > 2 * 1024 * 1024) {
+            setProfileError('Photo size must be smaller than 2MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setProfileImg(reader.result); // Base64 string
+            setProfileError('');
+        };
+        reader.onerror = () => {
+            setProfileError('Failed to read photo file.');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveProfile = async (e) => {
+        e.preventDefault();
+        setSavingProfile(true);
+        setProfileError('');
+        setProfileSuccess('');
+
+        try {
+            const res = await axios.put(`${import.meta.env.VITE_API_URL}/api/auth/profile`,
+                { name: profileName, phoneNumber: profilePhone, profileImage: profileImg },
+                { headers: { Authorization: `Bearer ${user.token}` } }
+            );
+
+            // Sync user data to context
+            const updatedUser = { 
+                ...user, 
+                name: res.data.name, 
+                phoneNumber: res.data.phoneNumber, 
+                profileImage: res.data.profileImage 
+            };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+
+            setProfileSuccess('Profile changes saved successfully!');
+            setTimeout(() => setProfileSuccess(''), 4000);
+        } catch (err) {
+            setProfileError(err.response?.data?.message || 'Failed to save profile changes.');
+        } finally {
+            setSavingProfile(false);
+        }
     };
 
     const formatTime = (t) => {
@@ -125,6 +188,33 @@ const UserDashboard = () => {
                 
                 <div className="flex gap-3 w-full md:w-auto md:max-w-fit">
                     <button 
+                        onClick={() => {
+                            setDashboardView(dashboardView === 'profile' ? 'quizzes' : 'profile');
+                            setProfileError('');
+                            setProfileSuccess('');
+                        }} 
+                        className="flex-1 md:flex-initial"
+                        style={{ 
+                            padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)',
+                            background: dashboardView === 'profile' ? '#6c63ff' : 'rgba(255,255,255,0.8)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 600, fontSize: 14,
+                            color: dashboardView === 'profile' ? 'white' : '#444', cursor: 'pointer', transition: 'all 0.2s',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                        }}
+                    >
+                        {user.profileImage ? (
+                            <img 
+                                src={user.profileImage} 
+                                alt="Profile Avatar" 
+                                style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                        ) : (
+                            <User size={18} strokeWidth={2.5} color={dashboardView === 'profile' ? 'white' : '#6c63ff'} />
+                        )}
+                        {dashboardView === 'profile' ? 'View Quizzes' : 'My Profile'}
+                    </button>
+                    <button 
                         onClick={() => navigate('/my-results')} 
                         className="flex-1 md:flex-initial"
                         style={{ 
@@ -157,203 +247,328 @@ const UserDashboard = () => {
                 </div>
             </motion.div>
 
-            {/* Simplified Search & Join Bar */}
-            <motion.div variants={itemVariants} className="mb-8">
-                <form onSubmit={handleJoin} className="flex flex-col sm:flex-row gap-3 max-w-[600px] w-full items-stretch sm:items-center">
-                    <div style={{ flex: 1, position: 'relative' }}>
-                        <input
-                            type="text"
-                            placeholder="🔍 Search quizzes by title or enter private code..."
-                            value={joinCode}
-                            onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
-                            style={{
-                                width: '100%', padding: '14px 20px 14px 44px', fontSize: 14, fontWeight: 600,
-                                color: '#111', background: 'white',
-                                border: joinError ? '2px solid rgba(255,59,48,0.5)' : '1px solid rgba(0,0,0,0.08)',
-                                borderRadius: 16, outline: 'none', transition: 'all 0.2s',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
-                            }}
-                            onFocus={(e) => { if(!joinError) e.target.style.borderColor = '#6c63ff'; e.target.style.boxShadow = '0 0 0 4px rgba(108,99,255,0.08)'; }}
-                            onBlur={(e) => { if(!joinError) e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)'; }}
-                        />
-                        <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 16, opacity: 0.6, pointerEvents: 'none' }}>
-                            🔍
-                        </span>
-                    </div>
-                    {joinCode.trim() && (
-                        <button 
-                            type="submit" 
-                            disabled={joining} 
-                            className="h-[48px] sm:h-auto justify-center"
-                            style={{
-                                padding: '14px 24px', borderRadius: 16, border: 'none',
-                                background: joining ? '#e2e2ea' : '#6c63ff',
-                                color: joining ? '#a0a0ab' : 'white',
-                                fontWeight: 700, fontSize: 14, cursor: joining ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6,
-                                boxShadow: joining ? 'none' : '0 8px 16px rgba(108,99,255,0.15)'
-                            }}
-                        >
-                            {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={16} strokeWidth={3} />
-                        </button>
-                    )}
-                </form>
-                {joinError && (
-                    <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#ff3b30', fontSize: 13, fontWeight: 600, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>⚠️</span> {joinError}
-                    </motion.p>
-                )}
-            </motion.div>
-
-            {/* Active Quizzes Grid */}
-            <motion.div variants={itemVariants}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                    <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: '#111' }}>Live & Upcoming</h2>
-                    {quizzes.length > 0 && <span style={{ background: 'rgba(0,0,0,0.05)', padding: '4px 12px', borderRadius: 100, fontSize: 13, fontWeight: 600, color: '#555' }}>{quizzes.length} available</span>}
-                </div>
-
-                {loading ? (
-                    <div className="grid-auto">
-                        {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 180, borderRadius: 24 }} />)}
-                    </div>
-                ) : quizzes.length === 0 ? (
-                    <div style={{ padding: '60px 24px', textAlign: 'center', background: 'white', borderRadius: 28, border: '1px dashed rgba(0,0,0,0.1)' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: '#f8f9fa', marginBottom: 20 }}>
-                            <CalendarDays size={28} color="#aaa" />
+            {dashboardView === 'profile' ? (
+                /* Profile Settings Edit View */
+                <motion.div 
+                    variants={itemVariants}
+                    className="card max-w-[520px] w-full mx-auto p-6 sm:p-8"
+                    style={{ background: 'white' }}
+                >
+                    <h2 className="text-xl font-extrabold text-gray-900 tracking-tight mb-2">Profile Settings</h2>
+                    <p className="text-sm text-gray-500 mb-6">Manage your student contact information and profile image.</p>
+                    
+                    <form onSubmit={handleSaveProfile} noValidate className="flex flex-col gap-4">
+                        {/* Base64 Avatar Selector */}
+                        <div className="flex flex-col items-center gap-2 mb-4">
+                            <div 
+                                onClick={() => fileInputRef.current.click()}
+                                className="relative w-24 h-24 rounded-full border-4 border-white shadow-md bg-blue-50 cursor-pointer overflow-hidden flex items-center justify-center group"
+                            >
+                                {profileImg ? (
+                                    <img src={profileImg} alt="Avatar Preview" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-3xl font-extrabold text-[#6c63ff]">
+                                        {profileName?.charAt(0).toUpperCase() || 'U'}
+                                    </span>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <Camera size={18} className="text-white" />
+                                </div>
+                            </div>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleImageUpload} 
+                                accept="image/*" 
+                                className="hidden" 
+                            />
+                            <span className="text-xs text-gray-400 font-medium">Tap avatar to upload photo (Max 2MB)</span>
                         </div>
-                        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#333' }}>No public quizzes running</h3>
-                        <p style={{ color: '#777', fontSize: 15, maxWidth: 300, margin: '0 auto' }}>Quizzes will appear here automatically when the admin starts them.</p>
-                    </div>
-                ) : (() => {
-                    const filteredQuizzes = quizzes.filter(quiz => 
-                        quiz.title.toLowerCase().includes(joinCode.toLowerCase()) ||
-                        quiz.quizCode.toLowerCase().includes(joinCode.toLowerCase())
-                    );
 
-                    if (filteredQuizzes.length === 0) {
-                        return (
+                        {/* Editable: Full name */}
+                        <div className="saas-field">
+                            <label className="saas-label" style={{ color: '#4a5568' }} htmlFor="profile-name">Full Name</label>
+                            <input 
+                                id="profile-name"
+                                type="text"
+                                className="input text-base"
+                                value={profileName}
+                                onChange={e => setProfileName(e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        {/* Editable: Phone number */}
+                        <div className="saas-field">
+                            <label className="saas-label" style={{ color: '#4a5568' }} htmlFor="profile-phone">Phone Number</label>
+                            <input 
+                                id="profile-phone"
+                                type="tel"
+                                inputMode="tel"
+                                className="input text-base"
+                                value={profilePhone}
+                                onChange={e => setProfilePhone(e.target.value)}
+                                placeholder="Enter your mobile number"
+                            />
+                        </div>
+
+                        {/* Read-Only: academic info cards */}
+                        <div className="border-t border-gray-100 pt-4 mt-2">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Academic Data (Read-Only)</h4>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
+                                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Email address</div>
+                                    <div className="text-xs font-bold text-gray-800 truncate" title={user.email}>{user.email}</div>
+                                </div>
+                                <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
+                                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Register Number</div>
+                                    <div className="text-xs font-bold text-gray-800">{user.registerNumber}</div>
+                                </div>
+                                <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
+                                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Department</div>
+                                    <div className="text-xs font-bold text-gray-800">{user.department}</div>
+                                </div>
+                                <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
+                                    <div className="text-[10px] text-gray-400 font-semibold uppercase">Year</div>
+                                    <div className="text-xs font-bold text-gray-800">{user.year} Year</div>
+                                </div>
+                            </div>
+                            <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5 mt-3">
+                                <div className="text-[10px] text-gray-400 font-semibold uppercase">College</div>
+                                <div className="text-xs font-bold text-gray-800">
+                                    {user.college === 'Others' ? user.otherCollegeName : 'SVHEC'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Status feedback & Submit */}
+                        <div className="mt-4">
+                            {profileError && (
+                                <div className="auth-error" style={{ marginBottom: 12 }}>
+                                    {profileError}
+                                </div>
+                            )}
+                            {profileSuccess && (
+                                <div className="auth-error" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', marginBottom: 12 }}>
+                                    {profileSuccess}
+                                </div>
+                            )}
+                            
+                            <button 
+                                type="submit" 
+                                disabled={savingProfile}
+                                className="btn btn-primary w-full"
+                                style={{ padding: '14px', borderRadius: 16, fontSize: 14, fontWeight: 700 }}
+                            >
+                                {savingProfile ? 'Saving changes...' : 'Save Profile Changes'}
+                            </button>
+                        </div>
+                    </form>
+                </motion.div>
+            ) : (
+                /* Active Quizzes View (Default) */
+                <>
+                    {/* Simplified Search & Join Bar */}
+                    <motion.div variants={itemVariants} className="mb-8">
+                        <form onSubmit={handleJoin} className="flex flex-col sm:flex-row gap-3 max-w-[600px] w-full items-stretch sm:items-center">
+                            <div style={{ flex: 1, position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Search quizzes by title or enter private code..."
+                                    value={joinCode}
+                                    onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
+                                    style={{
+                                        width: '100%', padding: '14px 20px 14px 44px', fontSize: 14, fontWeight: 600,
+                                        color: '#111', background: 'white',
+                                        border: joinError ? '2px solid rgba(255,59,48,0.5)' : '1px solid rgba(0,0,0,0.08)',
+                                        borderRadius: 16, outline: 'none', transition: 'all 0.2s',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                                    }}
+                                    onFocus={(e) => { if(!joinError) e.target.style.borderColor = '#6c63ff'; e.target.style.boxShadow = '0 0 0 4px rgba(108,99,255,0.08)'; }}
+                                    onBlur={(e) => { if(!joinError) e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)'; }}
+                                />
+                                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 16, opacity: 0.6, pointerEvents: 'none' }}>
+                                    🔍
+                                </span>
+                            </div>
+                            {joinCode.trim() && (
+                                <button 
+                                    type="submit" 
+                                    disabled={joining} 
+                                    className="h-[48px] sm:h-auto justify-center"
+                                    style={{
+                                        padding: '14px 24px', borderRadius: 16, border: 'none',
+                                        background: joining ? '#e2e2ea' : '#6c63ff',
+                                        color: joining ? '#a0a0ab' : 'white',
+                                        fontWeight: 700, fontSize: 14, cursor: joining ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6,
+                                        boxShadow: joining ? 'none' : '0 8px 16px rgba(108,99,255,0.15)'
+                                    }}
+                                >
+                                    {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={16} strokeWidth={3} />
+                                </button>
+                            )}
+                        </form>
+                        {joinError && (
+                            <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#ff3b30', fontSize: 13, fontWeight: 600, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span>⚠️</span> {joinError}
+                            </motion.p>
+                        )}
+                    </motion.div>
+
+                    {/* Active Quizzes Grid */}
+                    <motion.div variants={itemVariants}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: '#111' }}>Live & Upcoming</h2>
+                            {quizzes.length > 0 && <span style={{ background: 'rgba(0,0,0,0.05)', padding: '4px 12px', borderRadius: 100, fontSize: 13, fontWeight: 600, color: '#555' }}>{quizzes.length} available</span>}
+                        </div>
+
+                        {loading ? (
+                            <div className="grid-auto">
+                                {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 180, borderRadius: 24 }} />)}
+                            </div>
+                        ) : quizzes.length === 0 ? (
                             <div style={{ padding: '60px 24px', textAlign: 'center', background: 'white', borderRadius: 28, border: '1px dashed rgba(0,0,0,0.1)' }}>
                                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: '#f8f9fa', marginBottom: 20 }}>
                                     <CalendarDays size={28} color="#aaa" />
                                 </div>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#333' }}>No matching quizzes found</h3>
-                                <p style={{ color: '#777', fontSize: 15, maxWidth: 300, margin: '0 auto' }}>No quizzes match your search criteria. Check spelling or try a different keyword.</p>
+                                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#333' }}>No public quizzes running</h3>
+                                <p style={{ color: '#777', fontSize: 15, maxWidth: 300, margin: '0 auto' }}>Quizzes will appear here automatically when the admin starts them.</p>
                             </div>
-                        );
-                    }
+                        ) : (() => {
+                            const filteredQuizzes = quizzes.filter(quiz => 
+                                quiz.title.toLowerCase().includes(joinCode.toLowerCase()) ||
+                                quiz.quizCode.toLowerCase().includes(joinCode.toLowerCase())
+                            );
 
-                    return (
-                        <div className="grid-auto" style={{ gap: 20 }}>
-                            {filteredQuizzes.map(quiz => {
-                                const ti = formatTime(quiz.startTime);
-                                const isActive = quiz.status === 'LIVE' || ti?.active;
-
+                            if (filteredQuizzes.length === 0) {
                                 return (
-                                    <motion.div 
-                                        key={quiz._id} 
-                                        whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}
-                                        style={{ 
-                                            padding: 24, background: 'white', borderRadius: 24, 
-                                            border: '1px solid rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden',
-                                            display: 'flex', flexDirection: 'column', height: '100%',
-                                            transition: 'border-color 0.3s'
-                                        }}
-                                    >
-                                        {isActive && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #30d158, #34c759)' }} />}
-                                        
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                                            <div style={{ 
-                                                width: 48, height: 48, borderRadius: 16, 
-                                                background: isActive ? 'rgba(48,209,88,0.1)' : '#f5f5f7', 
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: isActive ? '#30d158' : '#888'
-                                            }}>
-                                                {isActive ? <CheckCircle2 size={24} strokeWidth={2.5} /> : <CalendarDays size={24} strokeWidth={2} />}
-                                            </div>
-                                            
-                                            {isActive ? (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(48,209,88,0.1)', color: '#24a148', borderRadius: 100, fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158', animation: 'timerPulse 1.5s infinite' }} />
-                                                    Live Now
-                                                </span>
-                                            ) : (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#f5f5f7', color: '#666', borderRadius: 100, fontSize: 12, fontWeight: 600 }}>
-                                                    Upcoming
-                                                </span>
-                                            )}
+                                    <div style={{ padding: '60px 24px', textAlign: 'center', background: 'white', borderRadius: 28, border: '1px dashed rgba(0,0,0,0.1)' }}>
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', background: '#f8f9fa', marginBottom: 20 }}>
+                                            <CalendarDays size={28} color="#aaa" />
                                         </div>
-                                        
-                                        <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, lineHeight: 1.3, color: '#111', flex: 1 }}>{quiz.title}</h3>
-                                        
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#666', fontWeight: 500 }}>
-                                                <Clock size={16} /> {quiz.duration} mins time limit
-                                            </div>
-                                            {ti && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: ti.active ? '#30d158' : '#888', fontWeight: 600 }}>
-                                                    <CalendarDays size={16} /> {ti.text}
-                                                </div>
-                                            )}
-                                                                             <div style={{ marginTop: 'auto' }}>
-                                            {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
-                                                <button 
-                                                    disabled
-                                                    style={{ 
-                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#fee2e2', 
-                                                        color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', fontWeight: 700, fontSize: 14,
-                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                                                    }}
-                                                >
-                                                    ❌ Flagged / Evicted
-                                                </button>
-                                            ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
-                                                <button 
-                                                    disabled
-                                                    style={{ 
-                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#f0fdf4', 
-                                                        color: '#15803d', border: '1px solid rgba(21,128,61,0.15)', fontWeight: 700, fontSize: 14,
-                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                                                    }}
-                                                >
-                                                    ✓ Completed
-                                                </button>
-                                            ) : isActive ? (
-                                                <button 
-                                                    onClick={async () => {
-                                                        await triggerFullscreen();
-                                                        navigate(`/quiz/${quiz.quizCode}`);
-                                                    }}
-                                                    style={{ 
-                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#6c63ff', 
-                                                        color: 'white', border: 'none', fontWeight: 700, fontSize: 14,
-                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                                        boxShadow: '0 4px 12px rgba(108,99,255,0.25)', transition: 'all 0.2s'
-                                                    }}
-                                                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#5b52e6'; }}
-                                                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#6c63ff'; }}
-                                                >
-                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={16} strokeWidth={2.5} />
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    disabled
-                                                    style={{ 
-                                                        width: '100%', padding: '14px', borderRadius: 14, background: '#f5f5f7', 
-                                                        color: '#a0a0ab', border: '1px solid rgba(0,0,0,0.05)', fontWeight: 700, fontSize: 14,
-                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                                                    }}
-                                                >
-                                                    Locked (Upcoming)
-                                                </button>
-                                            )}
-                                        </div>       </div>
-                                    </motion.div>
+                                        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#333' }}>No matching quizzes found</h3>
+                                        <p style={{ color: '#777', fontSize: 15, maxWidth: 300, margin: '0 auto' }}>No quizzes match your search criteria. Check spelling or try a different keyword.</p>
+                                    </div>
                                 );
-                            })}
-                        </div>
-                    );
-                })()}
-            </motion.div>
+                            }
+
+                            return (
+                                <div className="grid-auto" style={{ gap: 20 }}>
+                                    {filteredQuizzes.map(quiz => {
+                                        const ti = formatTime(quiz.startTime);
+                                        const isActive = quiz.status === 'LIVE' || ti?.active;
+
+                                        return (
+                                            <motion.div 
+                                                key={quiz._id} 
+                                                whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}
+                                                style={{ 
+                                                    padding: 24, background: 'white', borderRadius: 24, 
+                                                    border: '1px solid rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden',
+                                                    display: 'flex', flexDirection: 'column', height: '100%',
+                                                    transition: 'border-color 0.3s'
+                                                }}
+                                            >
+                                                {isActive && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #30d158, #34c759)' }} />}
+                                                
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                                                    <div style={{ 
+                                                        width: 48, height: 48, borderRadius: 16, 
+                                                        background: isActive ? 'rgba(48,209,88,0.1)' : '#f5f5f7', 
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        color: isActive ? '#30d158' : '#888'
+                                                    }}>
+                                                        {isActive ? <CheckCircle2 size={24} strokeWidth={2.5} /> : <CalendarDays size={24} strokeWidth={2} />}
+                                                    </div>
+                                                    
+                                                    {isActive ? (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(48,209,88,0.1)', color: '#24a148', borderRadius: 100, fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158', animation: 'timerPulse 1.5s infinite' }} />
+                                                            Live Now
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#f5f5f7', color: '#666', borderRadius: 100, fontSize: 12, fontWeight: 600 }}>
+                                                            Upcoming
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, lineHeight: 1.3, color: '#111', flex: 1 }}>{quiz.title}</h3>
+                                                
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#666', fontWeight: 500 }}>
+                                                        <Clock size={16} /> {quiz.duration} mins time limit
+                                                    </div>
+                                                    {ti && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: ti.active ? '#30d158' : '#888', fontWeight: 600 }}>
+                                                            <CalendarDays size={16} /> {ti.text}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div style={{ marginTop: 'auto' }}>
+                                                    {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
+                                                        <button 
+                                                            disabled
+                                                            style={{ 
+                                                                width: '100%', padding: '14px', borderRadius: 14, background: '#fee2e2', 
+                                                                color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', fontWeight: 700, fontSize: 14,
+                                                                cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                                            }}
+                                                        >
+                                                            ❌ Flagged / Evicted
+                                                        </button>
+                                                    ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
+                                                        <button 
+                                                            disabled
+                                                            style={{ 
+                                                                width: '100%', padding: '14px', borderRadius: 14, background: '#f0fdf4', 
+                                                                color: '#15803d', border: '1px solid rgba(21,128,61,0.15)', fontWeight: 700, fontSize: 14,
+                                                                cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                                            }}
+                                                        >
+                                                            ✓ Completed
+                                                        </button>
+                                                    ) : isActive ? (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                await triggerFullscreen();
+                                                                navigate(`/quiz/${quiz.quizCode}`);
+                                                            }}
+                                                            style={{ 
+                                                                width: '100%', padding: '14px', borderRadius: 14, background: '#6c63ff', 
+                                                                color: 'white', border: 'none', fontWeight: 700, fontSize: 14,
+                                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                                boxShadow: '0 4px 12px rgba(108,99,255,0.25)', transition: 'all 0.2s'
+                                                            }}
+                                                            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#5b52e6'; }}
+                                                            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#6c63ff'; }}
+                                                        >
+                                                            {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={16} strokeWidth={2.5} />
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            disabled
+                                                            style={{ 
+                                                                width: '100%', padding: '14px', borderRadius: 14, background: '#f5f5f7', 
+                                                                color: '#a0a0ab', border: '1px solid rgba(0,0,0,0.05)', fontWeight: 700, fontSize: 14,
+                                                                cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                                            }}
+                                                        >
+                                                            Locked (Upcoming)
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </motion.div>
+                </>
+            )}
         </motion.div>
     );
 };

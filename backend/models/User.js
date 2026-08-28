@@ -14,7 +14,9 @@ const userSchema = new mongoose.Schema({
     otherCollegeName: { type: String },
     isApproved: { type: Boolean, default: false },
     resetPasswordStatus: { type: String, enum: ['none', 'pending', 'approved'], default: 'none' },
-    allowedQuizzesAttempts: { type: Map, of: Number, default: {} }
+    allowedQuizzesAttempts: { type: Map, of: Number, default: {} },
+    phoneNumber: { type: String, default: '' },
+    profileImage: { type: String, default: '' }
 }, { timestamps: true });
 
 userSchema.pre('save', async function() {

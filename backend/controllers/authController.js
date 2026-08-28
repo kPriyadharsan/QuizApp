@@ -54,6 +54,8 @@ export const registerUser = async (req, res) => {
                 department: user.department,
                 college: user.college,
                 otherCollegeName: user.otherCollegeName,
+                phoneNumber: user.phoneNumber || '',
+                profileImage: user.profileImage || '',
                 token: generateToken(user._id, user.role),
             });
         } else {
@@ -87,6 +89,8 @@ export const loginUser = async (req, res) => {
                 department: user.department,
                 college: user.college,
                 otherCollegeName: user.otherCollegeName,
+                phoneNumber: user.phoneNumber || '',
+                profileImage: user.profileImage || '',
                 token: generateToken(user._id, user.role),
             });
         } else {
@@ -116,6 +120,8 @@ export const getMe = async (req, res) => {
                 department: user.department,
                 college: user.college,
                 otherCollegeName: user.otherCollegeName,
+                phoneNumber: user.phoneNumber || '',
+                profileImage: user.profileImage || '',
             });
         } else {
             res.status(404).json({ message: 'User not found' });
@@ -179,6 +185,44 @@ export const resetPassword = async (req, res) => {
         await user.save();
         
         res.json({ message: 'Password updated successfully. You can now log in' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Update student profile name, phone number, and Base64 photo
+export const updateProfile = async (req, res) => {
+    const { name, phoneNumber, profileImage } = req.body;
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (user.isBlocked) {
+            return res.status(403).json({ message: 'Your account has been blocked.', blocked: true });
+        }
+
+        if (name !== undefined) user.name = name;
+        if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+        if (profileImage !== undefined) user.profileImage = profileImage;
+
+        await user.save();
+
+        res.json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isApproved: user.isApproved,
+            registerNumber: user.registerNumber,
+            year: user.year,
+            department: user.department,
+            college: user.college,
+            otherCollegeName: user.otherCollegeName,
+            phoneNumber: user.phoneNumber || '',
+            profileImage: user.profileImage || '',
+        });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
     }

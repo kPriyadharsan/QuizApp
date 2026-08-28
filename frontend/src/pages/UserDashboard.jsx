@@ -110,9 +110,9 @@ const UserDashboard = () => {
             {/* Header Section */}
             <motion.div 
                 variants={itemVariants} 
-                className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-6"
+                className="mb-6"
             >
-                <div style={{ flex: '1 1 auto' }}>
+                <div>
                     <h1 style={{ fontSize: 'clamp(26px, 4.5vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4, color: '#111', lineHeight: 1.15 }}>
                         {greeting}, <br />
                         <span style={{ background: 'linear-gradient(135deg, #6c63ff 0%, #a29bfe 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -122,36 +122,6 @@ const UserDashboard = () => {
                     <p style={{ color: '#666', fontSize: 'clamp(13px, 1.8vw, 15px)', fontWeight: 500 }}>
                         Ready to test your knowledge today?
                     </p>
-                </div>
-                
-                {/* Results & Leaderboard buttons - snug margins, stacked on mobile */}
-                <div className="flex gap-2 w-full md:w-auto md:max-w-fit">
-                    <button 
-                        onClick={() => navigate('/my-results')} 
-                        className="flex-1 md:flex-initial"
-                        style={{ 
-                            padding: '10px 16px', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)',
-                            background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 600, fontSize: 13,
-                            color: '#444', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
-                        }}
-                    >
-                        <Activity size={16} strokeWidth={2.5} color="#6c63ff" />
-                        My Results
-                    </button>
-                    <button 
-                        onClick={() => navigate('/leaderboard')} 
-                        className="flex-1 md:flex-initial"
-                        style={{ 
-                            padding: '10px 16px', borderRadius: 12, border: 'none',
-                            background: '#111', color: 'white',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 600, fontSize: 13,
-                            cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 10px rgba(0,0,0,0.08)'
-                        }}
-                    >
-                        <Medal size={16} strokeWidth={2.5} color="#f8b400" />
-                        Leaderboard
-                    </button>
                 </div>
             </motion.div>
 

@@ -109,7 +109,7 @@ const UserDashboard = () => {
             {/* Header Section */}
             <motion.div 
                 variants={itemVariants} 
-                className="w-full flex flex-col gap-1 align-middle justify-start border-b border-gray-100 pb-4"
+                className="w-full flex flex-col gap-1 items-start justify-start border-b border-gray-100 pb-4"
             >
                 <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 leading-none">
                     {greeting}, <br />
@@ -193,7 +193,7 @@ const UserDashboard = () => {
                     }
 
                     return (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
                             {filteredQuizzes.map(quiz => {
                                 const ti = formatTime(quiz.startTime);
                                 const isActive = quiz.status === 'LIVE' || ti?.active;
@@ -201,60 +201,61 @@ const UserDashboard = () => {
                                 return (
                                     <motion.div 
                                         key={quiz._id} 
-                                        whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(0,0,0,0.06)' }}
-                                        className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all shadow-sm gap-4"
+                                        whileHover={{ y: -3, boxShadow: '0 12px 20px rgba(0,0,0,0.04)' }}
+                                        className="bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all shadow-sm"
+                                        style={{ padding: 'var(--card-padding)', gap: 'var(--card-gap)' }}
                                     >
-                                        {isActive && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-500" />}
+                                        {isActive && <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#6c63ff] to-[#a29bfe]" />}
                                         
-                                        <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col" style={{ gap: '16px' }}>
                                             <div className="flex justify-between items-center">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive ? 'bg-green-50 text-green-500' : 'bg-gray-50 text-gray-400'}`}>
                                                     {isActive ? <CheckCircle2 size={18} strokeWidth={2.5} /> : <CalendarDays size={18} strokeWidth={2} />}
                                                 </div>
                                                 
                                                 <div className="flex items-center gap-2">
-                                                    <span className="px-2.5 py-1 rounded-md bg-slate-100 font-mono text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                                    <span className="px-2.5 py-1 rounded-md bg-slate-100 font-mono text-xs font-bold text-slate-600 uppercase tracking-wider">
                                                         #{quiz.quizCode}
                                                     </span>
                                                     {isActive ? (
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-[11px] font-extrabold uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-extrabold uppercase tracking-wider">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                                             Live
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center px-2.5 py-1 bg-gray-50 text-gray-500 rounded-full text-[11px] font-bold uppercase tracking-wider">
+                                                        <span className="inline-flex items-center px-2.5 py-1 bg-gray-50 text-gray-500 rounded-full text-xs font-bold uppercase tracking-wider">
                                                             Upcoming
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
                                             
-                                            <h3 className="text-base sm:text-lg font-extrabold text-gray-900 leading-snug line-clamp-2">{quiz.title}</h3>
+                                            <h3 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2">{quiz.title}</h3>
                                             
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-semibold">
-                                                    <Clock size={14} className="text-gray-400" /> Duration: {quiz.duration} Mins
+                                            <div className="flex flex-col" style={{ gap: '8px' }}>
+                                                <div className="flex items-center gap-2.5 text-sm text-gray-500 font-semibold">
+                                                    <Clock size={15} className="text-gray-400" /> Time Limit: {quiz.duration} Minutes
                                                 </div>
                                                 {ti && (
-                                                    <div className={`flex items-center gap-2 text-xs sm:text-sm font-semibold ${ti.active ? 'text-green-600' : 'text-gray-400'}`}>
-                                                        <CalendarDays size={14} /> {ti.text}
+                                                    <div className={`flex items-center gap-2.5 text-sm font-semibold ${ti.active ? 'text-green-600' : 'text-gray-400'}`}>
+                                                        <CalendarDays size={15} /> {ti.text}
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                         
-                                        <div className="w-full pt-1">
+                                        <div className="w-full">
                                             {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
                                                 <button 
                                                     disabled
-                                                    className="w-full h-[46px] rounded-xl bg-red-50 text-red-500 border border-red-100 font-extrabold text-xs tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className="w-full h-11 rounded-xl bg-red-50 text-red-500 border border-red-100 font-bold text-sm tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     ❌ Flagged / Evicted
                                                 </button>
                                             ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
                                                 <button 
                                                     disabled
-                                                    className="w-full h-[46px] rounded-xl bg-green-50 text-green-700 border border-green-100 font-extrabold text-xs tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className="w-full h-11 rounded-xl bg-green-50 text-green-700 border border-green-100 font-bold text-sm tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     ✓ Completed
                                                 </button>
@@ -264,14 +265,14 @@ const UserDashboard = () => {
                                                         await triggerFullscreen();
                                                         navigate(`/quiz/${quiz.quizCode}`);
                                                     }}
-                                                    className="w-full h-[46px] rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-extrabold text-xs tracking-wider uppercase cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
+                                                    className="w-full h-11 rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-bold text-sm tracking-wider uppercase cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={14} strokeWidth={2.5} />
+                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={16} strokeWidth={2.5} />
                                                 </button>
                                             ) : (
                                                 <button 
                                                     disabled
-                                                    className="w-full h-[46px] rounded-xl bg-gray-50 text-gray-400 border border-gray-100 font-extrabold text-xs tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className="w-full h-11 rounded-xl bg-gray-50 text-gray-400 border border-gray-100 font-bold text-sm tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     Locked (Upcoming)
                                                 </button>

@@ -22,9 +22,9 @@ const ProfilePage = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Image size limit: 5MB max
-        if (file.size > 5 * 1024 * 1024) {
-            setProfileError('Photo size must be smaller than 5MB.');
+        // Image size limit: 1MB max to avoid payload issues
+        if (file.size > 1 * 1024 * 1024) {
+            setProfileError('Photo size is too large. Please select an image under 1MB.');
             return;
         }
 
@@ -64,7 +64,11 @@ const ProfilePage = () => {
             setProfileSuccess('Profile changes saved successfully!');
             setTimeout(() => setProfileSuccess(''), 4000);
         } catch (err) {
-            setProfileError(err.response?.data?.message || 'Failed to save profile changes.');
+            if (err.response?.status === 413) {
+                setProfileError('The uploaded image is too large for the server. Please try a smaller image (under 1MB).');
+            } else {
+                setProfileError(err.response?.data?.message || 'Failed to save profile changes.');
+            }
         } finally {
             setSavingProfile(false);
         }
@@ -93,33 +97,33 @@ const ProfilePage = () => {
             </div>
 
             {/* Profile Settings Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8 flex flex-col gap-6 w-full">
-                <div className="flex items-center gap-3">
-                    <div className="bg-[#6c63ff]/10 p-2.5 rounded-xl text-[#6c63ff] flex items-center justify-center">
-                        <User size={22} />
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm w-full" style={{ padding: 'var(--card-padding)', display: 'flex', flexDirection: 'column', gap: 'var(--card-gap)' }}>
+                <div className="flex items-center gap-4">
+                    <div className="bg-[#6c63ff]/10 p-3 rounded-2xl text-[#6c63ff] flex items-center justify-center">
+                        <User size={26} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-extrabold text-gray-900 tracking-tight leading-none">My Profile</h2>
-                        <p className="text-xs text-gray-500 font-medium mt-1">Edit your student contact details</p>
+                        <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight leading-none">My Profile</h2>
+                        <p className="text-sm text-gray-500 font-medium mt-1">Edit your student contact details</p>
                     </div>
                 </div>
 
-                <form onSubmit={handleSaveProfile} noValidate className="flex flex-col gap-5">
+                <form onSubmit={handleSaveProfile} noValidate className="flex flex-col" style={{ gap: 'var(--card-gap)' }}>
                     {/* Base64 Avatar Selector with always-visible camera badge */}
-                    <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-col items-center gap-3">
                         <div 
                             onClick={() => fileInputRef.current.click()}
-                            className="relative w-24 h-24 rounded-full border-4 border-white shadow-md bg-indigo-50 cursor-pointer flex items-center justify-center group"
+                            className="relative w-28 h-28 rounded-full border-4 border-white shadow-lg bg-indigo-50 cursor-pointer flex items-center justify-center group"
                         >
                             {profileImg ? (
                                 <img src={profileImg} alt="Avatar Preview" className="w-full h-full object-cover rounded-full" />
                             ) : (
-                                <span className="text-3xl font-extrabold text-[#6c63ff]">
+                                <span className="text-4xl font-extrabold text-[#6c63ff]">
                                     {profileName?.charAt(0).toUpperCase() || 'U'}
                                 </span>
                             )}
-                            <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#6c63ff] border-2 border-white shadow-md flex items-center justify-center text-white transition-transform group-hover:scale-110">
-                                <Camera size={14} />
+                            <div className="absolute bottom-1 right-1 w-9 h-9 rounded-full bg-[#6c63ff] border-[3px] border-white shadow-md flex items-center justify-center text-white transition-transform group-hover:scale-110">
+                                <Camera size={16} />
                             </div>
                         </div>
                         <input 
@@ -129,16 +133,17 @@ const ProfilePage = () => {
                             accept="image/*" 
                             className="hidden" 
                         />
-                        <span className="text-[11px] text-gray-400 font-medium">Tap avatar to change photo (Max 5MB)</span>
+                        <span className="text-xs text-gray-400 font-semibold">Tap avatar to change photo (Max 1MB)</span>
                     </div>
 
                     {/* Editable: Full name */}
-                    <div className="flex flex-col gap-1.5 w-full">
-                        <label className="text-xs font-bold text-gray-500" htmlFor="profile-name">Full Name</label>
+                    <div className="flex flex-col w-full" style={{ gap: '8px' }}>
+                        <label className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wider" htmlFor="profile-name">Full Name</label>
                         <input 
                             id="profile-name"
                             type="text"
-                            className="w-full h-[48px] sm:h-[52px] px-4 text-sm sm:text-base font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all"
+                            className="w-full text-sm sm:text-base font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:bg-white focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/10 transition-all"
+                            style={{ height: 'var(--input-height)', paddingLeft: 'var(--input-padding)', paddingRight: 'var(--input-padding)' }}
                             value={profileName}
                             onChange={e => setProfileName(e.target.value)}
                             required
@@ -146,13 +151,14 @@ const ProfilePage = () => {
                     </div>
 
                     {/* Editable: Phone number */}
-                    <div className="flex flex-col gap-1.5 w-full">
-                        <label className="text-xs font-bold text-gray-500" htmlFor="profile-phone">Phone Number</label>
+                    <div className="flex flex-col w-full" style={{ gap: '8px' }}>
+                        <label className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wider" htmlFor="profile-phone">Phone Number</label>
                         <input 
                             id="profile-phone"
                             type="tel"
                             inputMode="tel"
-                            className="w-full h-[48px] sm:h-[52px] px-4 text-sm sm:text-base font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all"
+                            className="w-full text-sm sm:text-base font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:bg-white focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/10 transition-all"
+                            style={{ height: 'var(--input-height)', paddingLeft: 'var(--input-padding)', paddingRight: 'var(--input-padding)' }}
                             value={profilePhone}
                             onChange={e => setProfilePhone(e.target.value)}
                             placeholder="Enter your phone number"
@@ -160,26 +166,26 @@ const ProfilePage = () => {
                     </div>
 
                     {/* Read-Only: academic info card */}
-                    <div className="border-t border-gray-100 pt-5 flex flex-col gap-3">
+                    <div className="border-t border-gray-100 pt-6 flex flex-col" style={{ gap: '16px' }}>
                         <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Academic Profile</h4>
-                            <span className="px-2.5 py-0.5 rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Read-Only</span>
+                            <h4 className="text-xs sm:text-sm font-extrabold text-gray-400 uppercase tracking-widest">Academic Profile</h4>
+                            <span className="px-3 py-1 rounded-full bg-gray-100 text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest">Read-Only</span>
                         </div>
-                        <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
-                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
-                                <span className="text-xs font-semibold text-gray-500">Email Address</span>
+                        <div className="bg-slate-50/80 rounded-3xl border border-slate-100 flex flex-col shadow-sm" style={{ padding: 'var(--card-padding)', gap: '16px' }}>
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                                <span className="text-xs sm:text-sm font-semibold text-gray-500">Email Address</span>
                                 <span className="text-xs sm:text-sm font-bold text-gray-800 truncate max-w-[180px] sm:max-w-[260px]" title={user?.email}>{user?.email}</span>
                             </div>
-                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
-                                <span className="text-xs font-semibold text-gray-500">Register Number</span>
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                                <span className="text-xs sm:text-sm font-semibold text-gray-500">Register Number</span>
                                 <span className="text-xs sm:text-sm font-bold text-gray-800">{user?.registerNumber}</span>
                             </div>
-                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
-                                <span className="text-xs font-semibold text-gray-500">Department & Year</span>
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                                <span className="text-xs sm:text-sm font-semibold text-gray-500">Department & Year</span>
                                 <span className="text-xs sm:text-sm font-bold text-gray-800">{user?.department} • Year {user?.year}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-gray-500">Institution</span>
+                                <span className="text-xs sm:text-sm font-semibold text-gray-500">Institution</span>
                                 <span className="text-xs sm:text-sm font-bold text-gray-800">
                                     {user?.college === 'Others' ? user?.otherCollegeName : 'SVHEC'}
                                 </span>
@@ -188,14 +194,14 @@ const ProfilePage = () => {
                     </div>
 
                     {/* Status feedback & Submit */}
-                    <div className="mt-2 flex flex-col gap-2">
+                    <div className="mt-4 flex flex-col" style={{ gap: '12px' }}>
                         {profileError && (
-                            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-semibold">
+                            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-sm font-bold">
                                 {profileError}
                             </div>
                         )}
                         {profileSuccess && (
-                            <div className="p-3 bg-green-50 border border-green-100 rounded-xl text-green-600 text-xs font-semibold">
+                            <div className="p-4 bg-green-50 border border-green-100 rounded-2xl text-green-600 text-sm font-bold">
                                 {profileSuccess}
                             </div>
                         )}
@@ -203,9 +209,10 @@ const ProfilePage = () => {
                         <button 
                             type="submit" 
                             disabled={savingProfile}
-                            className="w-full h-[50px] sm:h-[54px] rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-extrabold text-xs sm:text-sm tracking-wider uppercase cursor-pointer shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                            className="w-full rounded-2xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-extrabold text-sm sm:text-base tracking-widest uppercase cursor-pointer shadow-lg shadow-[#6c63ff]/30 hover:shadow-[#6c63ff]/40 transition-all flex items-center justify-center gap-3"
+                            style={{ height: 'var(--input-height)' }}
                         >
-                            <Save size={16} /> {savingProfile ? 'Saving changes...' : 'Save Profile Changes'}
+                            <Save size={18} /> {savingProfile ? 'Saving changes...' : 'Save Profile Changes'}
                         </button>
                     </div>
                 </form>

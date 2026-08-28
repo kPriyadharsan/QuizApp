@@ -183,11 +183,28 @@ const Header = () => {
           {/* Right: Desktop Navigation Container */}
           <div className="desktop-nav">
             {isAdmin ? (
-              /* Admin Signature */
-              <div className="dev-signature">
-                <span className="dev-bracket">&lt;</span>
-                Dharsan Xo/
-                <span className="dev-bracket">&gt;</span>
+              /* Admin Signature and Logout */
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                <div className="dev-signature">
+                  <span className="dev-bracket">&lt;</span>
+                  Dharsan Xo/
+                  <span className="dev-bracket">&gt;</span>
+                </div>
+                
+                <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.08)' }} />
+                
+                <button 
+                  onClick={logout} 
+                  style={{ 
+                    background: 'rgba(220,38,38,0.05)', border: 'none', fontSize: 13, 
+                    fontWeight: 600, color: '#dc2626', cursor: 'pointer',
+                    padding: '6px 12px', borderRadius: 8, transition: 'all 0.2s',
+                  }}
+                  onMouseOver={(e) => e.target.style.background = 'rgba(220,38,38,0.1)'}
+                  onMouseOut={(e) => e.target.style.background = 'rgba(220,38,38,0.05)'}
+                >
+                  Sign out
+                </button>
               </div>
             ) : (
               /* User Navigation (Desktop Layout) */

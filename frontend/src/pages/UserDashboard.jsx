@@ -132,7 +132,7 @@ const UserDashboard = () => {
                             placeholder="Search quizzes or enter code..."
                             value={joinCode}
                             onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
-                            className="w-full pr-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
+                            className="w-full h-[48px] sm:h-[52px] pr-4 text-sm sm:text-base font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all"
                             style={{ paddingLeft: '44px' }}
                         />
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
@@ -143,7 +143,7 @@ const UserDashboard = () => {
                         <button 
                             type="submit" 
                             disabled={joining} 
-                            className="py-3 px-6 rounded-xl bg-[#6c63ff] text-white font-bold text-sm cursor-pointer shadow-md hover:bg-[#5b52e6] hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                            className="h-[48px] sm:h-[52px] px-6 rounded-xl bg-[#6c63ff] text-white font-bold text-sm cursor-pointer shadow-md hover:bg-[#5b52e6] hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
                             {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={16} strokeWidth={2.5} />
                         </button>
@@ -230,7 +230,7 @@ const UserDashboard = () => {
                                             
                                             <div className="flex flex-col gap-1.5 mb-6">
                                                 <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-medium">
-                                                    <Clock size={14} /> {quiz.duration} mins limit
+                                                    <Clock size={14} /> Duration: {quiz.duration} Mins
                                                 </div>
                                                 {ti && (
                                                     <div className={`flex items-center gap-2 text-xs sm:text-sm font-semibold ${ti.active ? 'text-green-500' : 'text-gray-400'}`}>

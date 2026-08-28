@@ -71,6 +71,19 @@
     transition: height 0.3s ease;
 }
 
+/* Container to wrap sliding form panels */
+.auth-content-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+}
+
+/* ── Mobile top tab bar ── */
+.mobile-auth-tabs {
+    display: none;
+}
+
 /* ═══════════════════════════════════════════════════════════
    DIAGONAL TEAL PANEL
    ═══════════════════════════════════════════════════════════ */
@@ -154,29 +167,6 @@
 
 .form-panel.signin { left: 0; }
 .form-panel.signup { right: 0; }
-
-.form-panel.signin {
-    opacity: 1;
-    transform: translateX(0);
-    transition: opacity 0.4s ease 0.8s, transform 0.5s ease 0.8s;
-}
-.auth-wrapper.toggled .form-panel.signin {
-    opacity: 0;
-    transform: translateX(-40px);
-    transition: opacity 0.3s ease, transform 0.4s ease;
-    pointer-events: none;
-}
-
-.form-panel.signup {
-    opacity: 0;
-    transform: translateX(40px);
-    transition: opacity 0.3s ease, transform 0.4s ease;
-}
-.auth-wrapper.toggled .form-panel.signup {
-    opacity: 1;
-    transform: translateX(0);
-    transition: opacity 0.4s ease 0.8s, transform 0.5s ease 0.8s;
-}
 
 .form-inner {
     width: 100%;
@@ -596,9 +586,63 @@
         height: auto;
         min-height: 0;
         flex-direction: column;
+        overflow: hidden; /* Clips the sliding components cleanly inside the card */
     }
 
     .deco-panel { display: none; }
+
+    .auth-content-container {
+        width: 100%;
+        flex: 1;
+        min-height: 480px;
+    }
+
+    .mobile-auth-tabs {
+        display: flex;
+        position: relative;
+        background: #151d30;
+        border: 1.5px solid #223250;
+        border-radius: 12px;
+        padding: 4px;
+        margin-bottom: 24px;
+        width: 100%;
+        user-select: none;
+    }
+    .mobile-tab-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border: none;
+        background: none;
+        color: #94a3b8;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 9px;
+        transition: color 0.3s ease;
+        text-align: center;
+        z-index: 2;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-tab-btn.active {
+        color: #ffffff;
+    }
+    .mobile-tab-indicator {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        width: calc(50% - 4px);
+        background: linear-gradient(135deg, #09687a 0%, #00b4c4 100%);
+        border-radius: 8px;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1;
+    }
+    .mobile-tab-indicator.left {
+        transform: translateX(0);
+    }
+    .mobile-tab-indicator.right {
+        transform: translateX(100%);
+    }
 
     .form-panel {
         position: relative;
@@ -608,21 +652,6 @@
         right: auto;
         padding: 44px 36px;
     }
-
-    .form-panel.signin,
-    .form-panel.signup {
-        transition: none;
-        transform: none;
-    }
-
-    .form-panel.signup { opacity: 1; }
-
-    /* Show only the active form panel */
-    .auth-wrapper:not(.toggled) .form-panel.signup { display: none; }
-    .auth-wrapper.toggled      .form-panel.signin  { display: none; }
-
-    .panel-title { text-align: center; }
-    .panel-sub { text-align: center; margin-bottom: 16px; }
 }
 
 /* Small mobile devices */

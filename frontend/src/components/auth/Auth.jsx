@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -64,6 +64,39 @@ const Field = ({ id, label, type = 'text', value, onChange, autoComplete,
     </div>
 );
 
+/* ── Registration Closed Helper Component ── */
+const RegistrationClosed = ({ goToLogin }) => (
+    <>
+        <h2 className="panel-title" style={{ color: '#f87171' }}>
+            Registration Closed
+        </h2>
+        <p className="panel-sub" style={{ marginBottom: 24 }}>
+            The administrator has closed registration.<br/>
+            Please contact your instructor for access.
+        </p>
+        <button className="submit-button" type="button" onClick={goToLogin}>
+            Go to Login
+        </button>
+    </>
+);
+
+/* ── Framer Motion Slide Variants ── */
+const formVariants = {
+    enter: (direction) => ({
+        x: direction > 0 ? '100%' : '-100%',
+        opacity: 0
+    }),
+    center: {
+        x: 0,
+        opacity: 1
+    },
+    exit: (direction) => ({
+        x: direction < 0 ? '100%' : '-100%',
+        opacity: 0,
+        position: 'absolute'
+    })
+};
+
 /* ── Auth component ─────────────────────────────────────── */
 const Auth = () => {
     const [isToggled, setIsToggled] = useState(false);
@@ -121,6 +154,27 @@ const Auth = () => {
             .catch(() => setRegOpen(true))
             .finally(() => setCheckingReg(false));
     }, [location.pathname]);
+
+    /* Order pages for transition direction calculation */
+    const getViewInfo = (toggled, forgot, step) => {
+        if (forgot) return { key: 'forgot', index: 0.5 };
+        if (!toggled) return { key: 'signin', index: 0 };
+        if (step === 1) return { key: 'signup-step1', index: 1 };
+        return { key: 'signup-step2', index: 2 };
+    };
+
+    const viewInfo = getViewInfo(isToggled, isForgot, regStep);
+    const prevIndexRef = useRef(viewInfo.index);
+    const [direction, setDirection] = useState(1);
+
+    useEffect(() => {
+        const prevIndex = prevIndexRef.current;
+        const currentIndex = viewInfo.index;
+        if (currentIndex !== prevIndex) {
+            setDirection(currentIndex > prevIndex ? 1 : -1);
+            prevIndexRef.current = currentIndex;
+        }
+    }, [viewInfo.index]);
 
     /* Real-time Validation States for credentials step */
     const emailIsValid = regEmail ? /\S+@\S+\.\S+/.test(regEmail) : null;
@@ -313,208 +367,239 @@ const Auth = () => {
                     </div>
                 </div>
 
-                {/* ════════════════ SIGN-IN FORM ════════════════ */}
-                <div className="form-panel signin" style={isForgot ? { display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' } : {}}>
-                    <div className="form-inner">
-                        {isForgot ? (
-                            <>
-                                <h2 className="panel-title">Reset password</h2>
-                                <p className="panel-sub">
-                                    {forgotStep === 1 
-                                        ? 'Request admin approval to change password' 
-                                        : 'Set a new password for your account'}
-                                </p>
-
-                                {forgotError && <div className="auth-error">{forgotError}</div>}
-                                {forgotSuccess && <div className="auth-error" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#34d399' }}>{forgotSuccess}</div>}
-
-                                {forgotStep === 1 ? (
-                                    <form className="auth-form" onSubmit={handleRequestReset} noValidate>
-                                        <Field
-                                            id="forgot-email"
-                                            label="Email address"
-                                            type="email"
-                                            value={forgotEmail}
-                                            onChange={e => setForgotEmail(e.target.value)}
-                                            autoComplete="email"
-                                            inputMode="email"
-                                            autoCapitalize="none"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                        />
-                                        <Field
-                                            id="forgot-reg-no"
-                                            label="Register Number"
-                                            type="text"
-                                            value={forgotRegisterNumber}
-                                            onChange={e => setForgotRegisterNumber(e.target.value.toUpperCase())}
-                                            autoCapitalize="characters"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                        />
-                                        <button className="submit-button" type="submit" disabled={forgotLoading}>
-                                            {forgotLoading ? 'Submitting request…' : 'Submit Reset Request'}
-                                        </button>
-                                        <div className="switch-link" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                            <a href="#" onClick={(e) => { e.preventDefault(); setForgotStep(2); setForgotError(''); setForgotSuccess(''); }}>Already Approved?</a>
-                                            <a href="#" onClick={(e) => { e.preventDefault(); setIsForgot(false); setForgotError(''); setForgotSuccess(''); }}>Back to Login</a>
-                                        </div>
-                                    </form>
-                                ) : (
-                                    <form className="auth-form" onSubmit={handleResetPassword} noValidate>
-                                        <Field
-                                            id="forgot-email-step2"
-                                            label="Email address"
-                                            type="email"
-                                            value={forgotEmail}
-                                            onChange={e => setForgotEmail(e.target.value)}
-                                            autoComplete="email"
-                                            inputMode="email"
-                                            autoCapitalize="none"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                        />
-                                        <Field
-                                            id="forgot-reg-no-step2"
-                                            label="Register Number"
-                                            type="text"
-                                            value={forgotRegisterNumber}
-                                            onChange={e => setForgotRegisterNumber(e.target.value.toUpperCase())}
-                                            autoCapitalize="characters"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                        />
-                                        <Field
-                                            id="forgot-new-pw"
-                                            label="New Password"
-                                            type="password"
-                                            value={forgotNewPassword}
-                                            onChange={e => setForgotNewPassword(e.target.value)}
-                                            showToggle
-                                            showPw={showForgotPw}
-                                            onToggle={() => setShowForgotPw(v => !v)}
-                                            autoComplete="new-password"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                        />
-                                        <Field
-                                            id="forgot-confirm-pw"
-                                            label="Confirm New Password"
-                                            type="password"
-                                            value={forgotConfirmPassword}
-                                            onChange={e => setForgotConfirmPassword(e.target.value)}
-                                            autoComplete="new-password"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                        />
-                                        <button className="submit-button" type="submit" disabled={forgotLoading}>
-                                            {forgotLoading ? 'Updating password…' : 'Update Password'}
-                                        </button>
-                                        <div className="switch-link" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                            <a href="#" onClick={(e) => { e.preventDefault(); setForgotStep(1); setForgotError(''); setForgotSuccess(''); }}>Request Reset</a>
-                                            <a href="#" onClick={(e) => { e.preventDefault(); setIsForgot(false); setForgotError(''); setForgotSuccess(''); }}>Back to Login</a>
-                                        </div>
-                                    </form>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <h2 className="panel-title">Welcome back</h2>
-                                <p  className="panel-sub">Sign in to your account</p>
-
-                                {loginError && (
-                                    <div className="auth-error">{loginError}</div>
-                                )}
-
-                                <form className="auth-form" onSubmit={handleLogin} noValidate>
-                                    <Field
-                                        id="login-username"
-                                        label="Username / Email"
-                                        type="text"
-                                        value={loginUser}
-                                        onChange={e => setLoginUser(e.target.value)}
-                                        autoComplete="username"
-                                        autoCapitalize="none"
-                                        autoCorrect="off"
-                                        spellCheck="false"
-                                    />
-                                    <Field
-                                        id="login-password"
-                                        label="Password"
-                                        type="password"
-                                        value={loginPass}
-                                        onChange={e => setLoginPass(e.target.value)}
-                                        autoComplete="current-password"
-                                        showToggle
-                                        showPw={showLoginPw}
-                                        onToggle={() => setShowLoginPw(v => !v)}
-                                        autoCorrect="off"
-                                        spellCheck="false"
-                                    />
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 12 }}>
-                                        <a 
-                                            href="#" 
-                                            onClick={(e) => { e.preventDefault(); setIsForgot(true); setForgotStep(1); setForgotError(''); setForgotSuccess(''); }} 
-                                            style={{ color: '#00d4e8', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
-                                        >
-                                            Forgot Password?
-                                        </a>
-                                    </div>
-                                    <button className="submit-button" type="submit" disabled={loginLoading}>
-                                        {loginLoading ? 'Signing in…' : 'Sign in'}
-                                    </button>
-                                    <div className="switch-link">
-                                        Don't have an account?{' '}
-                                        <a href="#" onClick={goToRegister}>Sign up</a>
-                                    </div>
-                                </form>
-                            </>
-                        )}
+                {/* ── Mobile top tab bar ── */}
+                {!isForgot && (
+                    <div className="mobile-auth-tabs">
+                        <button 
+                            type="button" 
+                            className={`mobile-tab-btn ${!isToggled ? 'active' : ''}`}
+                            onClick={goToLogin}
+                        >
+                            Sign In
+                        </button>
+                        <button 
+                            type="button" 
+                            className={`mobile-tab-btn ${isToggled ? 'active' : ''}`}
+                            onClick={goToRegister}
+                        >
+                            Register
+                        </button>
+                        <div className={`mobile-tab-indicator ${isToggled ? 'right' : 'left'}`} />
                     </div>
-                </div>
+                )}
 
-                {/* ════════════════ SIGN-UP FORM (WITH MOBILE WIZARD) ════════════════ */}
-                <div className="form-panel signup" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' }}>
-                    <div className="form-inner">
-                        {!checkingReg && !regOpen ? (
-                            <>
-                                <h2 className="panel-title" style={{ color: '#f87171' }}>
-                                    Registration Closed
-                                </h2>
-                                <p className="panel-sub" style={{ marginBottom: 24 }}>
-                                    The administrator has closed registration.<br/>
-                                    Please contact your instructor for access.
-                                </p>
-                                <button className="submit-button" type="button" onClick={goToLogin}>
-                                    Go to Login
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <h2 className="panel-title">Create account</h2>
-                                <p  className="panel-sub">Join the SVHEC quiz portal</p>
+                {/* ── Inner sliding content container ── */}
+                <div className="auth-content-container">
+                    <AnimatePresence initial={false} custom={direction} mode="popLayout">
+                        {viewInfo.key === 'signin' && (
+                            <motion.div
+                                key="signin"
+                                custom={direction}
+                                variants={formVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                                className="form-panel signin"
+                            >
+                                <div className="form-inner">
+                                    <h2 className="panel-title">Welcome back</h2>
+                                    <p  className="panel-sub">Sign in to your account</p>
 
-                                {/* Multi-step progress dots */}
-                                <div className="step-progress-container">
-                                    <div className={`step-dot ${regStep >= 1 ? 'completed' : ''} ${regStep === 1 ? 'active' : ''}`}>1</div>
-                                    <div className={`step-connector ${regStep >= 2 ? 'completed' : ''}`}></div>
-                                    <div className={`step-dot ${regStep >= 2 ? 'completed' : ''} ${regStep === 2 ? 'active' : ''}`}>2</div>
-                                </div>
+                                    {loginError && (
+                                        <div className="auth-error">{loginError}</div>
+                                    )}
 
-                                {regError && (
-                                    <div className="auth-error">{regError}</div>
-                                )}
-
-                                <form className="auth-form" onSubmit={handleRegister} noValidate>
-                                    <AnimatePresence mode="wait">
-                                        {regStep === 1 ? (
-                                            <motion.div
-                                                key="step1"
-                                                initial={{ opacity: 0, x: -15 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                exit={{ opacity: 0, x: 15 }}
-                                                transition={{ duration: 0.2 }}
+                                    <form className="auth-form" onSubmit={handleLogin} noValidate>
+                                        <Field
+                                            id="login-username"
+                                            label="Username / Email"
+                                            type="text"
+                                            value={loginUser}
+                                            onChange={e => setLoginUser(e.target.value)}
+                                            autoComplete="username"
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
+                                            spellCheck="false"
+                                        />
+                                        <Field
+                                            id="login-password"
+                                            label="Password"
+                                            type="password"
+                                            value={loginPass}
+                                            onChange={e => setLoginPass(e.target.value)}
+                                            autoComplete="current-password"
+                                            showToggle
+                                            showPw={showLoginPw}
+                                            onToggle={() => setShowLoginPw(v => !v)}
+                                            autoCorrect="off"
+                                            spellCheck="false"
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 12 }}>
+                                            <a 
+                                                href="#" 
+                                                onClick={(e) => { e.preventDefault(); setIsForgot(true); setForgotStep(1); setForgotError(''); setForgotSuccess(''); }} 
+                                                style={{ color: '#00d4e8', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
                                             >
+                                                Forgot Password?
+                                            </a>
+                                        </div>
+                                        <button className="submit-button" type="submit" disabled={loginLoading}>
+                                            {loginLoading ? 'Signing in…' : 'Sign in'}
+                                        </button>
+                                        <div className="switch-link">
+                                            Don't have an account?{' '}
+                                            <a href="#" onClick={goToRegister}>Sign up</a>
+                                        </div>
+                                    </form>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {viewInfo.key === 'forgot' && (
+                            <motion.div
+                                key="forgot"
+                                custom={direction}
+                                variants={formVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                                className="form-panel signin"
+                                style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' }}
+                            >
+                                <div className="form-inner">
+                                    <h2 className="panel-title">Reset password</h2>
+                                    <p className="panel-sub">
+                                        {forgotStep === 1 
+                                            ? 'Request admin approval to change password' 
+                                            : 'Set a new password for your account'}
+                                    </p>
+
+                                    {forgotError && <div className="auth-error">{forgotError}</div>}
+                                    {forgotSuccess && <div className="auth-error" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#34d399' }}>{forgotSuccess}</div>}
+
+                                    {forgotStep === 1 ? (
+                                        <form className="auth-form" onSubmit={handleRequestReset} noValidate>
+                                            <Field
+                                                id="forgot-email"
+                                                label="Email address"
+                                                type="email"
+                                                value={forgotEmail}
+                                                onChange={e => setForgotEmail(e.target.value)}
+                                                autoComplete="email"
+                                                inputMode="email"
+                                                autoCapitalize="none"
+                                                autoCorrect="off"
+                                                spellCheck="false"
+                                            />
+                                            <Field
+                                                id="forgot-reg-no"
+                                                label="Register Number"
+                                                type="text"
+                                                value={forgotRegisterNumber}
+                                                onChange={e => setForgotRegisterNumber(e.target.value.toUpperCase())}
+                                                autoCapitalize="characters"
+                                                autoCorrect="off"
+                                                spellCheck="false"
+                                            />
+                                            <button className="submit-button" type="submit" disabled={forgotLoading}>
+                                                {forgotLoading ? 'Submitting request…' : 'Submit Reset Request'}
+                                            </button>
+                                            <div className="switch-link" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                                <a href="#" onClick={(e) => { e.preventDefault(); setForgotStep(2); setForgotError(''); setForgotSuccess(''); }}>Already Approved?</a>
+                                                <a href="#" onClick={(e) => { e.preventDefault(); setIsForgot(false); setForgotError(''); setForgotSuccess(''); }}>Back to Login</a>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <form className="auth-form" onSubmit={handleResetPassword} noValidate>
+                                            <Field
+                                                id="forgot-email-step2"
+                                                label="Email address"
+                                                type="email"
+                                                value={forgotEmail}
+                                                onChange={e => setForgotEmail(e.target.value)}
+                                                autoComplete="email"
+                                                inputMode="email"
+                                                autoCapitalize="none"
+                                                autoCorrect="off"
+                                                spellCheck="false"
+                                            />
+                                            <Field
+                                                id="forgot-reg-no-step2"
+                                                label="Register Number"
+                                                type="text"
+                                                value={forgotRegisterNumber}
+                                                onChange={e => setForgotRegisterNumber(e.target.value.toUpperCase())}
+                                                autoCapitalize="characters"
+                                                autoCorrect="off"
+                                                spellCheck="false"
+                                            />
+                                            <Field
+                                                id="forgot-new-pw"
+                                                label="New Password"
+                                                type="password"
+                                                value={forgotNewPassword}
+                                                onChange={e => setForgotNewPassword(e.target.value)}
+                                                showToggle
+                                                showPw={showForgotPw}
+                                                onToggle={() => setShowForgotPw(v => !v)}
+                                                autoComplete="new-password"
+                                                autoCorrect="off"
+                                                spellCheck="false"
+                                            />
+                                            <Field
+                                                id="forgot-confirm-pw"
+                                                label="Confirm New Password"
+                                                type="password"
+                                                value={forgotConfirmPassword}
+                                                onChange={e => setForgotConfirmPassword(e.target.value)}
+                                                autoComplete="new-password"
+                                                autoCorrect="off"
+                                                spellCheck="false"
+                                            />
+                                            <button className="submit-button" type="submit" disabled={forgotLoading}>
+                                                {forgotLoading ? 'Updating password…' : 'Update Password'}
+                                            </button>
+                                            <div className="switch-link" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                                <a href="#" onClick={(e) => { e.preventDefault(); setForgotStep(1); setForgotError(''); setForgotSuccess(''); }}>Request Reset</a>
+                                                <a href="#" onClick={(e) => { e.preventDefault(); setIsForgot(false); setForgotError(''); setForgotSuccess(''); }}>Back to Login</a>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {viewInfo.key === 'signup-step1' && (
+                            <motion.div
+                                key="signup-step1"
+                                custom={direction}
+                                variants={formVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                                className="form-panel signup"
+                                style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' }}
+                            >
+                                <div className="form-inner">
+                                    {!checkingReg && !regOpen ? (
+                                        <RegistrationClosed goToLogin={goToLogin} />
+                                    ) : (
+                                        <>
+                                            <h2 className="panel-title">Create account</h2>
+                                            <p className="panel-sub">Join the SVHEC quiz portal</p>
+
+                                            <div className="step-progress-container">
+                                                <div className="step-dot active">1</div>
+                                                <div className="step-connector"></div>
+                                                <div className="step-dot">2</div>
+                                            </div>
+
+                                            {regError && <div className="auth-error">{regError}</div>}
+
+                                            <form className="auth-form" onSubmit={handleNextStep} noValidate>
                                                 <Field
                                                     id="reg-name"
                                                     label="Full name"
@@ -558,23 +643,49 @@ const Auth = () => {
                                                     validationMessage="Password must be at least 6 characters"
                                                 />
                                                 
-                                                <button 
-                                                    className="submit-button" 
-                                                    type="button" 
-                                                    onClick={handleNextStep}
-                                                    style={{ marginTop: 8 }}
-                                                >
+                                                <button className="submit-button" type="submit" style={{ marginTop: 8 }}>
                                                     Continue ➔
                                                 </button>
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div
-                                                key="step2"
-                                                initial={{ opacity: 0, x: 15 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                exit={{ opacity: 0, x: -15 }}
-                                                transition={{ duration: 0.2 }}
-                                            >
+                                                <div className="switch-link">
+                                                    Already have an account?{' '}
+                                                    <a href="#" onClick={goToLogin}>Sign in</a>
+                                                </div>
+                                            </form>
+                                        </>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {viewInfo.key === 'signup-step2' && (
+                            <motion.div
+                                key="signup-step2"
+                                custom={direction}
+                                variants={formVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                                className="form-panel signup"
+                                style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' }}
+                            >
+                                <div className="form-inner">
+                                    {!checkingReg && !regOpen ? (
+                                        <RegistrationClosed goToLogin={goToLogin} />
+                                    ) : (
+                                        <>
+                                            <h2 className="panel-title">Create account</h2>
+                                            <p className="panel-sub">Join the SVHEC quiz portal</p>
+
+                                            <div className="step-progress-container">
+                                                <div className="step-dot completed">1</div>
+                                                <div className="step-connector completed"></div>
+                                                <div className="step-dot active">2</div>
+                                            </div>
+
+                                            {regError && <div className="auth-error">{regError}</div>}
+
+                                            <form className="auth-form" onSubmit={handleRegister} noValidate>
                                                 <Field
                                                     id="reg-register-number"
                                                     label="Register Number"
@@ -588,7 +699,6 @@ const Auth = () => {
                                                     validationMessage="Register number must be at least 5 characters"
                                                 />
 
-                                                {/* Segmented Picker for Year */}
                                                 <div className="saas-field">
                                                     <label className="saas-label">Academic Year</label>
                                                     <div className="picker-group">
@@ -605,7 +715,6 @@ const Auth = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Grid Chip Picker for Department */}
                                                 <div className="saas-field">
                                                     <label className="saas-label">Department</label>
                                                     <div className="dept-grid">
@@ -623,7 +732,6 @@ const Auth = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* College Select Toggle */}
                                                 <div className="saas-field">
                                                     <label className="saas-label">College</label>
                                                     <div className="college-toggle-group">
@@ -673,20 +781,18 @@ const Auth = () => {
                                                         {regLoading ? 'Creating account…' : 'Register'}
                                                     </button>
                                                 </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    <div className="switch-link">
-                                        Already have an account?{' '}
-                                        <a href="#" onClick={goToLogin}>Sign in</a>
-                                    </div>
-                                </form>
-                            </>
+                                                <div className="switch-link">
+                                                    Already have an account?{' '}
+                                                    <a href="#" onClick={goToLogin}>Sign in</a>
+                                                </div>
+                                            </form>
+                                        </>
+                                    )}
+                                </div>
+                            </motion.div>
                         )}
-                    </div>
+                    </AnimatePresence>
                 </div>
-
             </div>
 
             <div className="auth-footer">

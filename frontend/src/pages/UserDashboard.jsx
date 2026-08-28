@@ -101,7 +101,7 @@ const UserDashboard = () => {
 
     return (
         <motion.div 
-            className="page-wrap max-w-7xl mx-auto px-4 py-6 sm:px-6 sm:py-8 flex flex-col gap-6"
+            className="w-full flex flex-col gap-6"
             variants={containerVariants}
             initial="hidden"
             animate="show"
@@ -131,7 +131,8 @@ const UserDashboard = () => {
                             placeholder="Search quizzes or enter code..."
                             value={joinCode}
                             onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
-                            className="w-full pl-11 pr-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
+                            className="w-full pr-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
+                            style={{ paddingLeft: '44px' }}
                         />
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                             <Search size={18} />
@@ -201,8 +202,8 @@ const UserDashboard = () => {
                                     <motion.div 
                                         key={quiz._id} 
                                         whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(0,0,0,0.04)' }}
-                                        className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all"
-                                        style={{ minHeight: '200px' }}
+                                        className="bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all shadow-sm"
+                                        style={{ minHeight: '240px', padding: '24px' }}
                                     >
                                         {isActive && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-500" />}
                                         

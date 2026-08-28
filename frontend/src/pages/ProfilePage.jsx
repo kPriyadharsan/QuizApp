@@ -22,9 +22,9 @@ const ProfilePage = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Image size limit: 2MB max
-        if (file.size > 2 * 1024 * 1024) {
-            setProfileError('Photo size must be smaller than 2MB.');
+        // Image size limit: 5MB max
+        if (file.size > 5 * 1024 * 1024) {
+            setProfileError('Photo size must be smaller than 5MB.');
             return;
         }
 
@@ -77,7 +77,7 @@ const ProfilePage = () => {
 
     return (
         <motion.div 
-            className="page-wrap max-w-[560px] w-full mx-auto px-4 py-6 sm:py-8 flex flex-col gap-5"
+            className="max-w-[560px] w-full mx-auto flex flex-col gap-5"
             variants={containerVariants}
             initial="hidden"
             animate="show"
@@ -93,7 +93,7 @@ const ProfilePage = () => {
             </div>
 
             {/* Profile Settings Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-8 shadow-sm flex flex-col gap-6 w-full">
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 md:p-8 shadow-sm flex flex-col gap-6 w-full">
                 <div className="flex items-center gap-3">
                     <div className="bg-[#6c63ff]/10 p-2.5 rounded-xl text-[#6c63ff] flex items-center justify-center">
                         <User size={22} />
@@ -129,7 +129,7 @@ const ProfilePage = () => {
                             accept="image/*" 
                             className="hidden" 
                         />
-                        <span className="text-xs text-gray-400 font-medium">Tap avatar to change photo (Max 2MB)</span>
+                        <span className="text-[11px] text-gray-400 font-medium">Tap avatar to change photo (Max 5MB)</span>
                     </div>
 
                     {/* Editable: Full name */}

@@ -77,7 +77,7 @@ const ProfilePage = () => {
 
     return (
         <motion.div 
-            className="max-w-[560px] w-full mx-auto flex flex-col gap-5"
+            className="max-w-[560px] w-full mx-auto flex flex-col gap-6 px-5 py-4"
             variants={containerVariants}
             initial="hidden"
             animate="show"
@@ -93,7 +93,7 @@ const ProfilePage = () => {
             </div>
 
             {/* Profile Settings Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 md:p-8 shadow-sm flex flex-col gap-6 w-full">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 shadow-sm flex flex-col gap-6 w-full">
                 <div className="flex items-center gap-3">
                     <div className="bg-[#6c63ff]/10 p-2.5 rounded-xl text-[#6c63ff] flex items-center justify-center">
                         <User size={22} />

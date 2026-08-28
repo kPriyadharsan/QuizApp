@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, CalendarDays, Clock, Activity, Medal, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, Clock, CheckCircle2, Search } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 const triggerFullscreen = async () => {
@@ -91,7 +91,7 @@ const UserDashboard = () => {
 
     const containerVariants = {
         hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+        show: { opacity: 1, transition: { staggerChildren: 0.08 } }
     };
 
     const itemVariants = {
@@ -101,96 +101,77 @@ const UserDashboard = () => {
 
     return (
         <motion.div 
-            className="page-wrap"
+            className="page-wrap max-w-7xl mx-auto px-4 py-6 sm:px-6 sm:py-8 flex flex-col gap-6"
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            style={{ padding: '16px 12px' }}
         >
             {/* Header Section */}
             <motion.div 
                 variants={itemVariants} 
-                className="mb-6"
+                className="w-full flex flex-col gap-1 align-middle justify-start border-b border-gray-100 pb-4"
             >
-                <div>
-                    <h1 style={{ fontSize: 'clamp(26px, 4.5vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4, color: '#111', lineHeight: 1.15 }}>
-                        {greeting}, <br />
-                        <span style={{ background: 'linear-gradient(135deg, #6c63ff 0%, #a29bfe 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                            {user.name?.split(' ')[0]}
-                        </span> 👋
-                    </h1>
-                    <p style={{ color: '#666', fontSize: 'clamp(13px, 1.8vw, 15px)', fontWeight: 500 }}>
-                        Ready to test your knowledge today?
-                    </p>
-                </div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 leading-none">
+                    {greeting}, <br />
+                    <span className="bg-gradient-to-r from-[#6c63ff] to-[#a29bfe] bg-clip-text text-transparent">
+                        {user.name?.split(' ')[0]}
+                    </span> 👋
+                </h1>
+                <p className="text-sm sm:text-base text-gray-500 font-medium mt-1">
+                    Ready to test your knowledge today?
+                </p>
             </motion.div>
 
             {/* Direct Join & Search Bar */}
-            <motion.div variants={itemVariants} className="mb-6">
-                <form onSubmit={handleJoin} className="flex flex-col sm:flex-row gap-2 max-w-[600px] w-full items-stretch sm:items-center">
-                    <div style={{ flex: 1, position: 'relative' }}>
+            <motion.div variants={itemVariants} className="w-full">
+                <form onSubmit={handleJoin} className="flex flex-col sm:flex-row gap-3 max-w-[620px] w-full items-stretch">
+                    <div className="relative flex-1">
                         <input
                             type="text"
-                            placeholder="🔍 Search quizzes by title or enter private code..."
+                            placeholder="Search quizzes or enter code..."
                             value={joinCode}
                             onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
-                            style={{
-                                width: '100%', padding: '12px 16px 12px 38px', fontSize: 14, fontWeight: 600,
-                                color: '#111', background: 'white',
-                                border: joinError ? '2px solid rgba(255,59,48,0.5)' : '1px solid rgba(0,0,0,0.08)',
-                                borderRadius: 12, outline: 'none', transition: 'all 0.2s',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
-                            }}
-                            onFocus={(e) => { if(!joinError) e.target.style.borderColor = '#6c63ff'; e.target.style.boxShadow = '0 0 0 3px rgba(108,99,255,0.06)'; }}
-                            onBlur={(e) => { if(!joinError) e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.01)'; }}
+                            className="w-full pl-11 pr-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
                         />
-                        <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 14, opacity: 0.6, pointerEvents: 'none' }}>
-                            🔍
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                            <Search size={18} />
                         </span>
                     </div>
                     {joinCode.trim() && (
                         <button 
                             type="submit" 
                             disabled={joining} 
-                            className="h-[44px] sm:h-auto justify-center"
-                            style={{
-                                padding: '12px 20px', borderRadius: 12, border: 'none',
-                                background: joining ? '#e2e2ea' : '#6c63ff',
-                                color: joining ? '#a0a0ab' : 'white',
-                                fontWeight: 700, fontSize: 13, cursor: joining ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 4,
-                                boxShadow: joining ? 'none' : '0 4px 10px rgba(108,99,255,0.12)'
-                            }}
+                            className="py-3 px-6 rounded-xl bg-[#6c63ff] text-white font-bold text-sm cursor-pointer shadow-md hover:bg-[#5b52e6] hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
-                            {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={14} strokeWidth={3} />
+                            {joining ? 'Verifying...' : 'Join Direct'} <ArrowRight size={16} strokeWidth={2.5} />
                         </button>
                     )}
                 </form>
                 {joinError && (
-                    <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} style={{ color: '#ff3b30', fontSize: 12, fontWeight: 600, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-red-500 text-xs font-semibold mt-2 flex items-center gap-1">
                         <span>⚠️</span> {joinError}
                     </motion.p>
                 )}
             </motion.div>
 
             {/* Active Quizzes Grid */}
-            <motion.div variants={itemVariants}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: '#111' }}>Live & Upcoming</h2>
-                    {quizzes.length > 0 && <span style={{ background: 'rgba(0,0,0,0.04)', padding: '2px 10px', borderRadius: 100, fontSize: 12, fontWeight: 600, color: '#555' }}>{quizzes.length} available</span>}
+            <motion.div variants={itemVariants} className="w-full flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">Live & Upcoming Quizzes</h2>
+                    {quizzes.length > 0 && <span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold text-gray-600">{quizzes.length} Available</span>}
                 </div>
 
                 {loading ? (
-                    <div className="grid-auto">
-                        {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 160, borderRadius: 20 }} />)}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3].map(i => <div key={i} className="skeleton h-44 rounded-2xl" />)}
                     </div>
                 ) : quizzes.length === 0 ? (
-                    <div style={{ padding: '40px 16px', textAlign: 'center', background: 'white', borderRadius: 20, border: '1px dashed rgba(0,0,0,0.1)' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: '50%', background: '#f8f9fa', marginBottom: 16 }}>
-                            <CalendarDays size={24} color="#aaa" />
+                    <div className="py-12 px-4 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 mb-4">
+                            <CalendarDays size={24} className="text-gray-400" />
                         </div>
-                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#333' }}>No public quizzes running</h3>
-                        <p style={{ color: '#777', fontSize: 13, maxWidth: 280, margin: '0 auto' }}>Quizzes will appear here automatically when the admin starts them.</p>
+                        <h3 className="text-base font-bold text-gray-800 mb-1">No public quizzes running</h3>
+                        <p className="text-xs sm:text-sm text-gray-500 max-w-[280px] mx-auto">Quizzes will appear here automatically when the admin starts them.</p>
                     </div>
                 ) : (() => {
                     const filteredQuizzes = quizzes.filter(quiz => 
@@ -200,18 +181,18 @@ const UserDashboard = () => {
 
                     if (filteredQuizzes.length === 0) {
                         return (
-                            <div style={{ padding: '40px 16px', textAlign: 'center', background: 'white', borderRadius: 20, border: '1px dashed rgba(0,0,0,0.1)' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: '50%', background: '#f8f9fa', marginBottom: 16 }}>
-                                    <CalendarDays size={24} color="#aaa" />
+                            <div className="py-12 px-4 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-50 mb-4">
+                                    <CalendarDays size={24} className="text-gray-400" />
                                 </div>
-                                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#333' }}>No matching quizzes found</h3>
-                                <p style={{ color: '#777', fontSize: 13, maxWidth: 280, margin: '0 auto' }}>No quizzes match your search. Check code or spelling.</p>
+                                <h3 className="text-base font-bold text-gray-800 mb-1">No matching quizzes found</h3>
+                                <p className="text-xs sm:text-sm text-gray-500 max-w-[280px] mx-auto">No quizzes match your search. Check code or spelling.</p>
                             </div>
                         );
                     }
 
                     return (
-                        <div className="grid-auto" style={{ gap: 16 }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                             {filteredQuizzes.map(quiz => {
                                 const ti = formatTime(quiz.startTime);
                                 const isActive = quiz.status === 'LIVE' || ti?.active;
@@ -220,70 +201,55 @@ const UserDashboard = () => {
                                     <motion.div 
                                         key={quiz._id} 
                                         whileHover={{ y: -4, boxShadow: '0 12px 24px rgba(0,0,0,0.04)' }}
-                                        style={{ 
-                                            padding: 20, background: 'white', borderRadius: 20, 
-                                            border: '1px solid rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden',
-                                            display: 'flex', flexDirection: 'column', height: '100%',
-                                            transition: 'border-color 0.3s'
-                                        }}
+                                        className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-100 relative overflow-hidden flex flex-col justify-between transition-all"
+                                        style={{ minHeight: '200px' }}
                                     >
-                                        {isActive && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #30d158, #34c759)' }} />}
+                                        {isActive && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-500" />}
                                         
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                                            <div style={{ 
-                                                width: 44, height: 44, borderRadius: 12, 
-                                                background: isActive ? 'rgba(48,209,88,0.1)' : '#f5f5f7', 
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: isActive ? '#30d158' : '#888'
-                                            }}>
-                                                {isActive ? <CheckCircle2 size={20} strokeWidth={2.5} /> : <CalendarDays size={20} strokeWidth={2} />}
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isActive ? 'bg-green-50 text-green-500' : 'bg-gray-50 text-gray-400'}`}>
+                                                    {isActive ? <CheckCircle2 size={20} strokeWidth={2.5} /> : <CalendarDays size={20} strokeWidth={2} />}
+                                                </div>
+                                                
+                                                {isActive ? (
+                                                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                        Live
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-xs font-semibold">
+                                                        Upcoming
+                                                    </span>
+                                                )}
                                             </div>
                                             
-                                            {isActive ? (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(48,209,88,0.1)', color: '#24a148', borderRadius: 100, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#30d158', animation: 'timerPulse 1.5s infinite' }} />
-                                                    Live
-                                                </span>
-                                            ) : (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#f5f5f7', color: '#666', borderRadius: 100, fontSize: 11, fontWeight: 600 }}>
-                                                    Upcoming
-                                                </span>
-                                            )}
-                                        </div>
-                                        
-                                        <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 8, lineHeight: 1.3, color: '#111', flex: 1 }}>{quiz.title}</h3>
-                                        
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#666', fontWeight: 500 }}>
-                                                <Clock size={14} /> {quiz.duration} mins
-                                            </div>
-                                            {ti && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: ti.active ? '#30d158' : '#888', fontWeight: 600 }}>
-                                                    <CalendarDays size={14} /> {ti.text}
+                                            <h3 className="text-lg font-bold text-gray-900 mb-2 leading-snug line-clamp-2">{quiz.title}</h3>
+                                            
+                                            <div className="flex flex-col gap-1.5 mb-6">
+                                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 font-medium">
+                                                    <Clock size={14} /> {quiz.duration} mins limit
                                                 </div>
-                                            )}
+                                                {ti && (
+                                                    <div className={`flex items-center gap-2 text-xs sm:text-sm font-semibold ${ti.active ? 'text-green-500' : 'text-gray-400'}`}>
+                                                        <CalendarDays size={14} /> {ti.text}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                         
-                                        <div style={{ marginTop: 'auto' }}>
+                                        <div className="w-full">
                                             {quiz.userAttempt && quiz.userAttempt.flagCount >= 3 ? (
                                                 <button 
                                                     disabled
-                                                    style={{ 
-                                                        width: '100%', padding: '12px', borderRadius: 12, background: '#fee2e2', 
-                                                        color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', fontWeight: 700, fontSize: 13,
-                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                                                    }}
+                                                    className="w-full py-3 rounded-xl bg-red-50 text-red-500 border border-red-100 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     ❌ Flagged / Evicted
                                                 </button>
                                             ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
                                                 <button 
                                                     disabled
-                                                    style={{ 
-                                                        width: '100%', padding: '12px', borderRadius: 12, background: '#f0fdf4', 
-                                                        color: '#15803d', border: '1px solid rgba(21,128,61,0.15)', fontWeight: 700, fontSize: 13,
-                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                                                    }}
+                                                    className="w-full py-3 rounded-xl bg-green-50 text-green-700 border border-green-100 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     ✓ Completed
                                                 </button>
@@ -293,25 +259,14 @@ const UserDashboard = () => {
                                                         await triggerFullscreen();
                                                         navigate(`/quiz/${quiz.quizCode}`);
                                                     }}
-                                                    style={{ 
-                                                        width: '100%', padding: '12px', borderRadius: 12, background: '#6c63ff', 
-                                                        color: 'white', border: 'none', fontWeight: 700, fontSize: 13,
-                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                                                        boxShadow: '0 4px 10px rgba(108,99,255,0.2)', transition: 'all 0.2s'
-                                                    }}
-                                                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#5b52e6'; }}
-                                                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#6c63ff'; }}
+                                                    className="w-full py-3 rounded-xl bg-[#6c63ff] text-white font-bold text-sm cursor-pointer shadow-md hover:bg-[#5b52e6] hover:shadow-lg transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume' : 'Start'} <ArrowRight size={14} strokeWidth={2.5} />
+                                                    {quiz.userAttempt && quiz.userAttempt.status === 'IN_PROGRESS' ? 'Resume Quiz' : 'Start Quiz'} <ArrowRight size={16} strokeWidth={2.5} />
                                                 </button>
                                             ) : (
                                                 <button 
                                                     disabled
-                                                    style={{ 
-                                                        width: '100%', padding: '12px', borderRadius: 12, background: '#f5f5f7', 
-                                                        color: '#a0a0ab', border: '1px solid rgba(0,0,0,0.05)', fontWeight: 700, fontSize: 13,
-                                                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                                                    }}
+                                                    className="w-full py-3 rounded-xl bg-gray-50 text-gray-400 border border-gray-100 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     Locked (Upcoming)
                                                 </button>

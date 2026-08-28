@@ -77,54 +77,49 @@ const ProfilePage = () => {
 
     return (
         <motion.div 
-            className="page-wrap"
+            className="page-wrap max-w-[560px] w-full mx-auto px-4 py-6 sm:py-8 flex flex-col gap-5"
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            style={{ maxWidth: 600, margin: '0 auto', padding: '12px 8px' }}
         >
             {/* Back Button */}
-            <div style={{ marginBottom: 16 }}>
+            <div className="w-full flex justify-start">
                 <button 
                     onClick={() => navigate('/')}
-                    style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        color: '#666', fontWeight: 600, fontSize: 13
-                    }}
+                    className="flex items-center gap-2 text-gray-500 font-bold text-sm bg-none border-none cursor-pointer hover:text-gray-800 transition-colors"
                 >
                     <ArrowLeft size={16} /> Back to Dashboard
                 </button>
             </div>
 
             {/* Profile Settings Card */}
-            <div className="card p-5 sm:p-8" style={{ background: 'white' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                    <div style={{ background: 'rgba(108,99,255,0.08)', padding: 10, borderRadius: 12 }}>
-                        <User size={22} color="#6c63ff" />
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-8 shadow-sm flex flex-col gap-6 w-full">
+                <div className="flex items-center gap-3">
+                    <div className="bg-[#6c63ff]/10 p-2.5 rounded-xl text-[#6c63ff] flex items-center justify-center">
+                        <User size={22} />
                     </div>
                     <div>
-                        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111', margin: 0, letterSpacing: '-0.02em' }}>My Profile</h2>
-                        <p style={{ fontSize: 12, color: '#666', margin: 0, marginTop: 2 }}>Edit your student contact details</p>
+                        <h2 className="text-xl font-extrabold text-gray-900 tracking-tight leading-none">My Profile</h2>
+                        <p className="text-xs text-gray-500 font-medium mt-1">Edit your student contact details</p>
                     </div>
                 </div>
 
-                <form onSubmit={handleSaveProfile} noValidate className="flex flex-col gap-4">
+                <form onSubmit={handleSaveProfile} noValidate className="flex flex-col gap-5">
                     {/* Base64 Avatar Selector */}
-                    <div className="flex flex-col items-center gap-2 mb-2">
+                    <div className="flex flex-col items-center gap-2.5">
                         <div 
                             onClick={() => fileInputRef.current.click()}
-                            className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white shadow-md bg-blue-50 cursor-pointer overflow-hidden flex items-center justify-center group"
+                            className="relative w-24 h-24 rounded-full border-4 border-white shadow-md bg-blue-50 cursor-pointer overflow-hidden flex items-center justify-center group"
                         >
                             {profileImg ? (
                                 <img src={profileImg} alt="Avatar Preview" className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-2xl sm:text-3xl font-extrabold text-[#6c63ff]">
+                                <span className="text-3xl font-extrabold text-[#6c63ff]">
                                     {profileName?.charAt(0).toUpperCase() || 'U'}
                                 </span>
                             )}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Camera size={16} className="text-white" />
+                                <Camera size={18} className="text-white" />
                             </div>
                         </div>
                         <input 
@@ -134,16 +129,16 @@ const ProfilePage = () => {
                             accept="image/*" 
                             className="hidden" 
                         />
-                        <span className="text-[11px] text-gray-400 font-medium">Tap avatar to change photo (Max 2MB)</span>
+                        <span className="text-xs text-gray-400 font-medium">Tap avatar to change photo (Max 2MB)</span>
                     </div>
 
                     {/* Editable: Full name */}
-                    <div className="saas-field">
-                        <label className="saas-label" htmlFor="profile-name">Full Name</label>
+                    <div className="flex flex-col gap-1.5 w-full">
+                        <label className="text-xs font-bold text-gray-500" htmlFor="profile-name">Full Name</label>
                         <input 
                             id="profile-name"
                             type="text"
-                            className="input text-base"
+                            className="w-full px-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
                             value={profileName}
                             onChange={e => setProfileName(e.target.value)}
                             required
@@ -151,13 +146,13 @@ const ProfilePage = () => {
                     </div>
 
                     {/* Editable: Phone number */}
-                    <div className="saas-field">
-                        <label className="saas-label" htmlFor="profile-phone">Phone Number</label>
+                    <div className="flex flex-col gap-1.5 w-full">
+                        <label className="text-xs font-bold text-gray-500" htmlFor="profile-phone">Phone Number</label>
                         <input 
                             id="profile-phone"
                             type="tel"
                             inputMode="tel"
-                            className="input text-base"
+                            className="w-full px-4 py-3 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#6c63ff] focus:ring-4 focus:ring-[#6c63ff]/5 shadow-sm transition-all text-base"
                             value={profilePhone}
                             onChange={e => setProfilePhone(e.target.value)}
                             placeholder="Enter your phone number"
@@ -165,43 +160,43 @@ const ProfilePage = () => {
                     </div>
 
                     {/* Read-Only: academic info cards */}
-                    <div className="border-t border-gray-100 pt-4 mt-2">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Academic Data (Read-Only)</h4>
+                    <div className="border-t border-gray-100 pt-5 flex flex-col gap-3">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Academic Data (Read-Only)</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
-                                <div className="text-[10px] text-gray-400 font-semibold uppercase">Email address</div>
-                                <div className="text-xs font-bold text-gray-800 truncate" title={user?.email}>{user?.email}</div>
+                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Email address</span>
+                                <span className="text-sm font-semibold text-gray-700 truncate" title={user?.email}>{user?.email}</span>
                             </div>
-                            <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
-                                <div className="text-[10px] text-gray-400 font-semibold uppercase">Register Number</div>
-                                <div className="text-xs font-bold text-gray-800">{user?.registerNumber}</div>
+                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Register Number</span>
+                                <span className="text-sm font-semibold text-gray-700">{user?.registerNumber}</span>
                             </div>
-                            <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
-                                <div className="text-[10px] text-gray-400 font-semibold uppercase">Department</div>
-                                <div className="text-xs font-bold text-gray-800">{user?.department}</div>
+                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Department</span>
+                                <span className="text-sm font-semibold text-gray-700">{user?.department}</span>
                             </div>
-                            <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5">
-                                <div className="text-[10px] text-gray-400 font-semibold uppercase">Year</div>
-                                <div className="text-xs font-bold text-gray-800">{user?.year} Year</div>
+                            <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Academic Year</span>
+                                <span className="text-sm font-semibold text-gray-700">{user?.year} Year</span>
                             </div>
                         </div>
-                        <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-500/5 mt-3">
-                            <div className="text-[10px] text-gray-400 font-semibold uppercase">College</div>
-                            <div className="text-xs font-bold text-gray-800">
+                        <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100/80 flex flex-col gap-1">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">College</span>
+                            <span className="text-sm font-semibold text-gray-700">
                                 {user?.college === 'Others' ? user?.otherCollegeName : 'SVHEC'}
-                            </div>
+                            </span>
                         </div>
                     </div>
 
                     {/* Status feedback & Submit */}
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-col gap-2">
                         {profileError && (
-                            <div className="auth-error" style={{ marginBottom: 12 }}>
+                            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-semibold">
                                 {profileError}
                             </div>
                         )}
                         {profileSuccess && (
-                            <div className="auth-error" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', marginBottom: 12 }}>
+                            <div className="p-3 bg-green-50 border border-green-100 rounded-xl text-green-600 text-xs font-semibold">
                                 {profileSuccess}
                             </div>
                         )}
@@ -209,8 +204,7 @@ const ProfilePage = () => {
                         <button 
                             type="submit" 
                             disabled={savingProfile}
-                            className="btn btn-primary w-full"
-                            style={{ padding: '14px', borderRadius: 12, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            className="w-full py-3.5 rounded-xl bg-[#6c63ff] hover:bg-[#5b52e6] text-white font-bold text-sm cursor-pointer shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
                             <Save size={16} /> {savingProfile ? 'Saving changes...' : 'Save Profile Changes'}
                         </button>

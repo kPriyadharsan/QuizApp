@@ -321,9 +321,10 @@ body {
 
 /* ── Mobile touch comfort ────────────────────── */
 @media (max-width: 640px) {
-  .q-option { min-height: 62px; padding: 16px; font-size: 15px; border-radius: var(--r-md); }
+  .q-option { min-height: 62px; padding: 16px; font-size: 16px; border-radius: var(--r-md); }
   .btn { padding: 15px 22px; font-size: 16px; }
   .timer { font-size: 16px; padding: 7px 14px; }
+  .input { font-size: 16px; } /* Prevents iOS auto-zoom */
 }
 
 /* ── New Glass Navbar (Apple Style) ──────────────────────────── */

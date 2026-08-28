@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ═══════════════════════════════════════════════════════════
-   RESET
-═══════════════════════════════════════════════════════════ */
+   RESET & SYSTEM BASICS
+   ═══════════════════════════════════════════════════════════ */
 *, *::before, *::after {
     margin: 0;
     padding: 0;
@@ -10,9 +10,7 @@
     font-family: 'Inter', 'Segoe UI', sans-serif;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PAGE SHELL — centers the card on screen
-═══════════════════════════════════════════════════════════ */
+/* ── Page Shell ── */
 .auth-page-container {
     min-height: 100vh;
     width: 100%;
@@ -20,52 +18,79 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: #060910;
+    background: radial-gradient(circle at 10% 20%, rgba(10, 15, 30, 1) 0%, rgba(5, 7, 12, 1) 100%);
     padding: 24px 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Glowing ambient blobs in background for premium dark mode feel */
+.auth-page-container::before,
+.auth-page-container::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.15;
+    z-index: 0;
+    pointer-events: none;
+}
+.auth-page-container::before {
+    background: #00d4e8;
+    top: -50px;
+    left: -50px;
+}
+.auth-page-container::after {
+    background: #6c63ff;
+    bottom: -50px;
+    right: -50px;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   WRAPPER — 980 × 600 card
-═══════════════════════════════════════════════════════════ */
+   WRAPPER — 980 × 640 card with glassmorphism
+   ═══════════════════════════════════════════════════════════ */
 .auth-wrapper {
     position: relative;
     width: 100%;
     max-width: 980px;
-    height: 600px;
-    border-radius: 16px;
+    height: 640px;
+    border-radius: 20px;
     overflow: hidden;
-    background: #0d1117;          /* navy base */
+    background: rgba(13, 17, 23, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     box-shadow:
-        0 0 0 1px rgba(0, 212, 232, 0.08),
-        0 32px 80px rgba(0, 0, 0, 0.7),
-        0 8px 32px rgba(0, 0, 0, 0.5);
+        0 0 0 1px rgba(0, 212, 232, 0.05),
+        0 30px 70px rgba(0, 0, 0, 0.6),
+        0 10px 30px rgba(0, 0, 0, 0.4);
+    z-index: 1;
+    display: flex;
+    transition: height 0.3s ease;
 }
 
 /* ═══════════════════════════════════════════════════════════
    DIAGONAL TEAL PANEL
-   Clips a teal gradient to a diagonal half of the card.
-   On Sign-In (default): teal is on the RIGHT side.
-   On Sign-Up (.toggled): teal moves to the LEFT side.
-   The clip-path creates the sharp 135° diagonal edge.
-═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════ */
 .deco-panel {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, #0a7a8f 0%, #00d4e8 100%);
-    /* default (Sign In): teal on RIGHT — diagonal line from 81% top to 19% bottom */
+    background: linear-gradient(135deg, #09687a 0%, #00b4c4 100%);
     clip-path: polygon(81% 0, 100% 0, 100% 100%, 19% 100%);
     transition: clip-path 1.2s cubic-bezier(0.65, 0, 0.35, 1);
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1;
 }
 
-/* toggled (Sign Up): teal on LEFT — diagonal line from 81% top to 19% bottom */
 .auth-wrapper.toggled .deco-panel {
     clip-path: polygon(0 0, 81% 0, 19% 100%, 0 100%);
 }
 
-/* ── Welcome text inside teal ── */
+/* ── Welcome text inside teal panel ── */
 .deco-text {
     position: absolute;
     display: flex;
@@ -74,7 +99,6 @@
     text-align: center;
 }
 
-/* "WELCOME BACK!" sits in the RIGHT half */
 .deco-text.signin {
     right: 0;
     width: 50%;
@@ -88,7 +112,6 @@
     pointer-events: none;
 }
 
-/* "JOIN US!" sits in the LEFT half */
 .deco-text.signup {
     left: 0;
     width: 50%;
@@ -110,13 +133,12 @@
     line-height: 1.4;
     text-align: center;
     padding: 0 40px;
-    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FORM PANELS — one for sign-in (left), one for sign-up (right)
-   Both are absolutely positioned, z-index above teal panel.
-═══════════════════════════════════════════════════════════ */
+   FORM PANELS
+   ═══════════════════════════════════════════════════════════ */
 .form-panel {
     position: absolute;
     top: 0;
@@ -127,12 +149,12 @@
     justify-content: center;
     z-index: 2;
     padding: 40px 48px;
+    overflow-y: auto;
 }
 
 .form-panel.signin { left: 0; }
 .form-panel.signup { right: 0; }
 
-/* Sign-in panel: visible by default, hides when toggled */
 .form-panel.signin {
     opacity: 1;
     transform: translateX(0);
@@ -145,7 +167,6 @@
     pointer-events: none;
 }
 
-/* Sign-up panel: hidden by default, shows when toggled */
 .form-panel.signup {
     opacity: 0;
     transform: translateX(40px);
@@ -157,15 +178,12 @@
     transition: opacity 0.4s ease 0.8s, transform 0.5s ease 0.8s;
 }
 
-/* ── Inner form box — vertically centered, max 360px ── */
 .form-inner {
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PANEL HEADINGS
-═══════════════════════════════════════════════════════════ */
+/* Heading styles */
 .panel-title {
     font-size: 28px;
     font-weight: 700;
@@ -178,25 +196,21 @@
 .panel-sub {
     font-size: 14px;
     font-weight: 400;
-    color:white;
+    color: #a0aec0;
     line-height: 1.5;
     margin-bottom: 0;
-    white-space: normal;          /* never clip subtitle text */
-    overflow: visible;
+    white-space: normal;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   FORM GRID — strict vertical stack
-═══════════════════════════════════════════════════════════ */
+/* Form block spacing */
 .auth-form {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    margin-top: 28px;
+    margin-top: 24px;
 }
 
-/* ── Field wrapper ── */
 .saas-field {
     display: flex;
     flex-direction: column;
@@ -206,16 +220,14 @@
     width: 100%;
 }
 
-/* ── Label ── */
 .saas-label {
     font-size: 13px;
-    font-weight: 500;
-    color: #e5e7eb;                /* Brighter color for visibility */
+    font-weight: 600;
+    color: #e2e8f0;
     letter-spacing: 0.1px;
     user-select: none;
 }
 
-/* ── Input wrapper (relative for eye icon) ── */
 .saas-input-wrap {
     position: relative;
     width: 100%;
@@ -223,40 +235,38 @@
     align-items: center;
 }
 
-/* ── Input ── */
+/* Inputs styling */
 .saas-input {
     width: 100%;
     height: 48px;
     padding: 0 16px;
-    background: #1a2235;
-    border: 1px solid #2a3a55;
-    border-radius: 8px;
+    background: #151d30;
+    border: 1.5px solid #223250;
+    border-radius: 10px;
     font-size: 14px;
     font-weight: 400;
     color: #ffffff;
     outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: all 0.2s ease;
     -webkit-appearance: none;
     appearance: none;
 }
 
-.saas-input::placeholder { color: #4a5a72; }
+.saas-input::placeholder { color: #4e6080; }
 
-/* password — make room for eye icon */
 .saas-input.has-eye { padding-right: 48px; }
 
-/* Focus */
+/* Focus and hover state */
+.saas-input:hover {
+    border-color: #2b3d60;
+}
 .saas-input:focus {
     border-color: #00d4e8;
-    box-shadow: 0 0 0 3px rgba(0, 212, 232, 0.12);
+    background: #121a2b;
+    box-shadow: 0 0 0 3px rgba(0, 212, 232, 0.15);
 }
 
-/* Filled */
-.saas-input:not(:placeholder-shown):not(:focus) {
-    border-color: rgba(0, 212, 232, 0.3);
-}
-
-/* ── Eye toggle — password ONLY ── */
+/* Eye password toggle button */
 .eye-toggle {
     position: absolute;
     right: 0;
@@ -269,53 +279,274 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: #4a5a72;
-    border-radius: 0 8px 8px 0;
+    color: #586d90;
+    border-radius: 0 10px 10px 0;
     transition: color 0.2s ease;
     z-index: 1;
-    flex-shrink: 0;
     padding: 0;
 }
 .eye-toggle:hover { color: #00d4e8; }
 .eye-toggle svg {
     display: block;
-    width: 17px; height: 17px;
-    pointer-events: none;
+    width: 18px; height: 18px;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBMIT BUTTON
-═══════════════════════════════════════════════════════════ */
+   MOBILE PICKERS (INSTEAD OF HTML DROPDOWNS)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Segmented Picker */
+.picker-group {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 2px;
+}
+.picker-btn {
+    padding: 11px 8px;
+    background: #151d30;
+    border: 1.5px solid #223250;
+    border-radius: 10px;
+    color: #cbd5e1;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+    user-select: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.picker-btn:hover {
+    border-color: #2b3d60;
+}
+.picker-btn.active {
+    background: rgba(0, 212, 232, 0.1);
+    border-color: #00d4e8;
+    color: #00d4e8;
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(0, 212, 232, 0.1);
+}
+
+/* Department Grid (Chips) */
+.dept-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 2px;
+}
+.dept-chip {
+    padding: 10px 4px;
+    background: #151d30;
+    border: 1.5px solid #223250;
+    border-radius: 10px;
+    color: #cbd5e1;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    user-select: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.dept-chip:hover {
+    border-color: #2b3d60;
+}
+.dept-chip.active {
+    background: rgba(0, 212, 232, 0.1);
+    border-color: #00d4e8;
+    color: #00d4e8;
+    box-shadow: 0 0 10px rgba(0, 212, 232, 0.1);
+}
+.dept-chip-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+.dept-chip-sub {
+    font-size: 8.5px;
+    color: #64748b;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 95%;
+}
+.dept-chip.active .dept-chip-sub {
+    color: #00d4e8;
+    opacity: 0.8;
+}
+
+/* College Toggle (SVHEC / Others) */
+.college-toggle-group {
+    display: flex;
+    background: #151d30;
+    border: 1.5px solid #223250;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+.college-toggle-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 7px;
+    transition: all 0.2s ease;
+    text-align: center;
+    user-select: none;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.college-toggle-btn.active {
+    background: #00d4e8;
+    color: #0d1117;
+    font-weight: 700;
+}
+
+/* ── Wizard step progress ── */
+.step-progress-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 22px;
+    gap: 8px;
+    width: 100%;
+    user-select: none;
+}
+.step-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #151d30;
+    border: 1.5px solid #223250;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+.step-dot.active {
+    border-color: #00d4e8;
+    background: rgba(0, 212, 232, 0.08);
+    color: #00d4e8;
+    box-shadow: 0 0 8px rgba(0, 212, 232, 0.15);
+}
+.step-dot.completed {
+    background: #00d4e8;
+    border-color: #00d4e8;
+    color: #0d1117;
+}
+.step-connector {
+    flex: 1;
+    height: 2px;
+    background: #223250;
+    max-width: 50px;
+    transition: background 0.3s ease;
+}
+.step-connector.completed {
+    background: #00d4e8;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUBMIT BUTTON & ACTION GROUP
+   ═══════════════════════════════════════════════════════════ */
 .submit-button {
     width: 100%;
     height: 50px;
     margin-top: 8px;
     background: transparent;
-    border: 1px solid #00d4e8;
-    border-radius: 8px;
+    border: 1.5px solid #00d4e8;
+    border-radius: 10px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
     color: #00d4e8;
     letter-spacing: 0.2px;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    transition: all 0.2s ease;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 .submit-button:hover:not(:disabled) {
-    background: rgba(0, 212, 232, 0.1);
-    box-shadow: 0 0 20px rgba(0, 212, 232, 0.2);
-    color: #fff;
+    background: rgba(0, 212, 232, 0.08);
+    box-shadow: 0 0 15px rgba(0, 212, 232, 0.2);
+    color: #ffffff;
 }
-.submit-button:active:not(:disabled) { transform: scale(0.985); }
+.submit-button:active:not(:disabled) { transform: scale(0.98); }
 .submit-button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Wizard action buttons row */
+.wizard-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+.btn-prev {
+    flex: 1;
+    height: 50px;
+    background: #151d30;
+    border: 1.5px solid #223250;
+    border-radius: 10px;
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+.btn-prev:hover {
+    border-color: #2b3d60;
+    color: #e2e8f0;
+}
+.btn-prev:active { transform: scale(0.98); }
+
+.btn-next {
+    flex: 1.5;
+}
+
 /* ═══════════════════════════════════════════════════════════
-   SWITCH LINK
-═══════════════════════════════════════════════════════════ */
+   VALIDATION HINTS
+   ═══════════════════════════════════════════════════════════ */
+.validation-hint {
+    font-size: 11px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+.validation-hint.valid {
+    color: #34d399;
+}
+.validation-hint.invalid {
+    color: #f87171;
+}
+
+.saas-input.is-valid {
+    border-color: rgba(52, 211, 153, 0.4);
+}
+.saas-input.is-invalid {
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SWITCH LINK & MESSAGES
+   ═══════════════════════════════════════════════════════════ */
 .switch-link {
     margin-top: 18px;
     text-align: center;
     font-size: 13px;
-    color: #6b7280;
+    color: #64748b;
     line-height: 1.5;
 }
 .switch-link a {
@@ -324,16 +555,14 @@
     text-decoration: none;
     transition: color 0.2s;
 }
-.switch-link a:hover { color: #fff; }
+.switch-link a:hover { color: #ffffff; }
 
-/* ═══════════════════════════════════════════════════════════
-   ERROR BOX
-═══════════════════════════════════════════════════════════ */
+/* Errors display box */
 .auth-error {
     width: 100%;
     background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
     padding: 10px 14px;
     font-size: 13px;
     color: #f87171;
@@ -341,14 +570,12 @@
     margin-bottom: 14px;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   FOOTER
-═══════════════════════════════════════════════════════════ */
 .auth-footer {
-    margin-top: 20px;
+    margin-top: 24px;
     text-align: center;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.25);
+    z-index: 1;
 }
 .auth-footer a {
     color: #00d4e8;
@@ -356,30 +583,32 @@
     font-weight: 600;
     transition: color 0.2s;
 }
-.auth-footer a:hover { color: #fff; }
+.auth-footer a:hover { color: #ffffff; }
 
 /* ═══════════════════════════════════════════════════════════
-   RESPONSIVE — tablet (≤ 860px): collapse to single-column card
-═══════════════════════════════════════════════════════════ */
+   RESPONSIVE LAYOUT BREAKPOINTS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Tablet & Smaller: Collapse to vertical single column */
 @media (max-width: 860px) {
     .auth-wrapper {
-        max-width: 460px;
+        max-width: 480px;
         height: auto;
         min-height: 0;
+        flex-direction: column;
     }
 
-    /* hide teal decoration at small sizes */
     .deco-panel { display: none; }
 
-    /* stack form panels vertically, show one at a time */
     .form-panel {
         position: relative;
         width: 100%;
-        left: auto; right: auto;
-        padding: 40px 32px;
+        height: auto;
+        left: auto;
+        right: auto;
+        padding: 44px 36px;
     }
 
-    /* reset transitions — use display show/hide */
     .form-panel.signin,
     .form-panel.signup {
         transition: none;
@@ -388,20 +617,77 @@
 
     .form-panel.signup { opacity: 1; }
 
-    /* hide inactive panel */
+    /* Show only the active form panel */
     .auth-wrapper:not(.toggled) .form-panel.signup { display: none; }
     .auth-wrapper.toggled      .form-panel.signin  { display: none; }
 
-    /* Center text better on mobile */
     .panel-title { text-align: center; }
-    .panel-sub { text-align: center; margin-bottom: 24px; }
+    .panel-sub { text-align: center; margin-bottom: 16px; }
 }
 
+/* Small mobile devices */
 @media (max-width: 479px) {
-    .auth-page-container { padding: 16px 12px; }
-    .form-panel { padding: 32px 24px; }
-    .panel-title { font-size: 24px; }
-    .saas-input  { height: 46px; }
-    .submit-button { height: 46px; }
-    .saas-field  { margin-bottom: 14px; }
+    .auth-page-container {
+        padding: 12px 10px;
+    }
+
+    .auth-wrapper {
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .form-panel {
+        padding: 32px 20px;
+    }
+
+    .panel-title {
+        font-size: 24px;
+    }
+
+    .saas-input {
+        height: 48px;
+        font-size: 16px; /* VERY IMPORTANT: prevents mobile Safari auto-zoom */
+        border-radius: 8px;
+        padding: 0 14px;
+    }
+    
+    /* Make sure eye toggles align to 16px font inputs */
+    .eye-toggle {
+        border-radius: 0 8px 8px 0;
+    }
+    
+    /* Picker items fit better */
+    .picker-btn {
+        padding: 10px 6px;
+        font-size: 12px;
+        border-radius: 8px;
+    }
+    
+    .dept-chip {
+        padding: 9px 2px;
+        border-radius: 8px;
+    }
+    .dept-chip-title {
+        font-size: 12px;
+    }
+    .dept-chip-sub {
+        font-size: 8px;
+    }
+
+    .college-toggle-group, .college-toggle-btn {
+        border-radius: 8px;
+    }
+
+    .submit-button, .btn-prev {
+        height: 48px;
+        border-radius: 8px;
+    }
+    
+    .saas-field {
+        margin-bottom: 12px;
+    }
+    
+    .dept-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }

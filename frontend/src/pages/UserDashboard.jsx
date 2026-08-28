@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, KeyRound, Clock, CalendarDays, Activity, Medal, CheckCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 const triggerFullscreen = async () => {
     // Check if fullscreen API is supported at all
@@ -29,7 +29,7 @@ const triggerFullscreen = async () => {
                             document.body.mozRequestFullScreen || 
                             document.body.msRequestFullscreen;
             if (reqBody) {
-                try { await reqBody.call(document.body); } catch(e) {}
+                try { await reqBody.call(document.body); } catch { /* ignore */ }
             }
         }
     }
@@ -107,7 +107,10 @@ const UserDashboard = () => {
             animate="show"
         >
             {/* Header Section */}
-            <motion.div variants={itemVariants} style={{ marginBottom: 40, display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'space-between', alignItems: 'center' }}>
+            <motion.div 
+                variants={itemVariants} 
+                className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center mb-8 md:mb-10"
+            >
                 <div style={{ flex: '1 1 300px' }}>
                     <h1 style={{ fontSize: 'clamp(28px, 5vw, 42px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8, color: '#111', lineHeight: 1.1 }}>
                         {greeting}, <br />
@@ -120,11 +123,12 @@ const UserDashboard = () => {
                     </p>
                 </div>
                 
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%', maxWidth: 'fit-content' }}>
+                <div className="flex gap-3 w-full md:w-auto md:max-w-fit">
                     <button 
                         onClick={() => navigate('/my-results')} 
+                        className="flex-1 md:flex-initial"
                         style={{ 
-                            flex: '1 1 auto', padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)',
+                            padding: '12px 20px', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)',
                             background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 600, fontSize: 14,
                             color: '#444', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
@@ -137,8 +141,9 @@ const UserDashboard = () => {
                     </button>
                     <button 
                         onClick={() => navigate('/leaderboard')} 
+                        className="flex-1 md:flex-initial"
                         style={{ 
-                            flex: '1 1 auto', padding: '12px 20px', borderRadius: 16, border: 'none',
+                            padding: '12px 20px', borderRadius: 16, border: 'none',
                             background: '#111', color: 'white',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 600, fontSize: 14,
                             cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 14px rgba(0,0,0,0.1)'
@@ -153,8 +158,8 @@ const UserDashboard = () => {
             </motion.div>
 
             {/* Simplified Search & Join Bar */}
-            <motion.div variants={itemVariants} style={{ marginBottom: 32 }}>
-                <form onSubmit={handleJoin} style={{ display: 'flex', gap: 12, maxWidth: 600, width: '100%', alignItems: 'center' }}>
+            <motion.div variants={itemVariants} className="mb-8">
+                <form onSubmit={handleJoin} className="flex flex-col sm:flex-row gap-3 max-w-[600px] w-full items-stretch sm:items-center">
                     <div style={{ flex: 1, position: 'relative' }}>
                         <input
                             type="text"
@@ -179,6 +184,7 @@ const UserDashboard = () => {
                         <button 
                             type="submit" 
                             disabled={joining} 
+                            className="h-[48px] sm:h-auto justify-center"
                             style={{
                                 padding: '14px 24px', borderRadius: 16, border: 'none',
                                 background: joining ? '#e2e2ea' : '#6c63ff',

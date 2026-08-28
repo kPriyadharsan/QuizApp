@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import './auth.css';
 
 /* ── SVG icons ─────────────────────────────────────────── */
@@ -21,21 +22,26 @@ const IconEyeClosed = () => (
     </svg>
 );
 
-/* ── Reusable field component ───────────────────────────── */
+/* ── Reusable field component with mobile optimization ── */
 const Field = ({ id, label, type = 'text', value, onChange, autoComplete,
-                 showToggle = false, showPw = false, onToggle }) => (
+                 showToggle = false, showPw = false, onToggle,
+                 isValid = null, validationMessage = '', inputMode, autoCapitalize, autoCorrect, spellCheck }) => (
     <div className="saas-field">
         <label className="saas-label" htmlFor={id}>{label}</label>
         <div className="saas-input-wrap">
             <input
                 id={id}
-                className={`saas-input${showToggle ? ' has-eye' : ''}`}
+                className={`saas-input${showToggle ? ' has-eye' : ''}${isValid === true ? ' is-valid' : isValid === false ? ' is-invalid' : ''}`}
                 type={type === 'password' ? (showPw ? 'text' : 'password') : type}
                 value={value}
                 onChange={onChange}
                 placeholder={label}
                 required
                 autoComplete={autoComplete}
+                inputMode={inputMode}
+                autoCapitalize={autoCapitalize}
+                autoCorrect={autoCorrect}
+                spellCheck={spellCheck}
             />
             {showToggle && (
                 <button type="button" className="eye-toggle"
@@ -45,6 +51,16 @@ const Field = ({ id, label, type = 'text', value, onChange, autoComplete,
                 </button>
             )}
         </div>
+        {isValid === false && validationMessage && (
+            <div className="validation-hint invalid">
+                <span>⚠️</span> {validationMessage}
+            </div>
+        )}
+        {isValid === true && (
+            <div className="validation-hint valid">
+                <span>✓</span> Looks good
+            </div>
+        )}
     </div>
 );
 
@@ -52,14 +68,15 @@ const Field = ({ id, label, type = 'text', value, onChange, autoComplete,
 const Auth = () => {
     const [isToggled, setIsToggled] = useState(false);
 
-    /* sign-in */
+    /* sign-in state */
     const [loginUser, setLoginUser]       = useState('');
     const [loginPass, setLoginPass]       = useState('');
     const [showLoginPw, setShowLoginPw]   = useState(false);
     const [loginError, setLoginError]     = useState('');
     const [loginLoading, setLoginLoading] = useState(false);
 
-    /* sign-up */
+    /* sign-up wizard state */
+    const [regStep, setRegStep]                     = useState(1);
     const [regName, setRegName]                     = useState('');
     const [regEmail, setRegEmail]                   = useState('');
     const [regPass, setRegPass]                     = useState('');
@@ -72,7 +89,7 @@ const Auth = () => {
     const [regError, setRegError]                   = useState('');
     const [regLoading, setRegLoading]               = useState(false);
 
-    /* forgot password */
+    /* forgot password state */
     const [isForgot, setIsForgot]                   = useState(false);
     const [forgotStep, setForgotStep]               = useState(1); 
     const [forgotEmail, setForgotEmail]             = useState('');
@@ -93,12 +110,25 @@ const Auth = () => {
     const location = useLocation();
 
     useEffect(() => {
-        setIsToggled(location.pathname === '/register');
+        const pathIsRegister = location.pathname === '/register';
+        setIsToggled(pathIsRegister);
+        if (pathIsRegister) {
+            setRegStep(1);
+        }
+        
         axios.get(`${import.meta.env.VITE_API_URL}/api/admin/settings`)
             .then(r  => setRegOpen(r.data.registrationOpen))
             .catch(() => setRegOpen(true))
             .finally(() => setCheckingReg(false));
     }, [location.pathname]);
+
+    /* Real-time Validation States for credentials step */
+    const emailIsValid = regEmail ? /\S+@\S+\.\S+/.test(regEmail) : null;
+    const nameIsValid = regName ? regName.trim().length >= 3 : null;
+    const passIsValid = regPass ? regPass.length >= 6 : null;
+
+    /* Real-time Validation for Step 2 */
+    const regNoIsValid = regRegisterNumber ? regRegisterNumber.trim().length >= 5 : null;
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -110,12 +140,36 @@ const Auth = () => {
         setLoginLoading(false);
     };
 
+    const handleNextStep = (e) => {
+        e.preventDefault();
+        setRegError('');
+        
+        if (!regName.trim() || regName.trim().length < 3) {
+            setRegError('Full name must be at least 3 characters.');
+            return;
+        }
+        if (!regEmail.trim() || !/\S+@\S+\.\S+/.test(regEmail)) {
+            setRegError('Please enter a valid email address.');
+            return;
+        }
+        if (!regPass || regPass.length < 6) {
+            setRegError('Password must be at least 6 characters.');
+            return;
+        }
+        
+        setRegStep(2);
+    };
+
     const handleRegister = async (e) => {
         e.preventDefault();
         setRegError('');
 
         if (!regRegisterNumber.trim()) {
             setRegError('Register number is required');
+            return;
+        }
+        if (regRegisterNumber.trim().length < 5) {
+            setRegError('Register number must be at least 5 characters');
             return;
         }
         if (!regYear) {
@@ -141,6 +195,7 @@ const Auth = () => {
             setRegError(res.message || 'Registration failed');
         } else {
             setIsToggled(false);
+            setRegStep(1);
             setLoginUser(regEmail);
             navigate('/login', { replace: true });
         }
@@ -211,27 +266,55 @@ const Auth = () => {
         }
     };
 
-    const goToRegister = (e) => { e.preventDefault(); setIsToggled(true);  navigate('/register', { replace: true }); };
-    const goToLogin    = (e) => { e.preventDefault(); setIsToggled(false); navigate('/login',    { replace: true }); };
+    const goToRegister = (e) => { 
+        e.preventDefault(); 
+        setIsToggled(true);  
+        setRegStep(1);
+        setRegError('');
+        navigate('/register', { replace: true }); 
+    };
+    
+    const goToLogin = (e) => { 
+        e.preventDefault(); 
+        setIsToggled(false); 
+        setRegStep(1);
+        setLoginError('');
+        navigate('/login', { replace: true }); 
+    };
+
+    /* Static choices for Segmented Pickers */
+    const academicYears = [
+        { value: 'I', label: 'I Year' },
+        { value: 'II', label: 'II Year' },
+        { value: 'III', label: 'III Year' },
+        { value: 'IV', label: 'IV Year' }
+    ];
+
+    const departmentChips = [
+        { value: 'CSE', label: 'CSE', desc: 'Computer Science' },
+        { value: 'AIDS', label: 'AIDS', desc: 'AI & Data Sci' },
+        { value: 'IT', label: 'IT', desc: 'Info Tech' },
+        { value: 'ECE', label: 'ECE', desc: 'Electronics' },
+        { value: 'EEE', label: 'EEE', desc: 'Electrical' },
+        { value: 'BME', label: 'BME', desc: 'Biomedical' }
+    ];
 
     return (
         <div className="auth-page-container">
             <div className={`auth-wrapper${isToggled ? ' toggled' : ''}`}>
 
-                {/* ── Diagonal teal decoration panel ── */}
+                {/* ── Diagonal decoration panel ── */}
                 <div className="deco-panel">
-                    {/* "WELCOME BACK!" — shown on right when sign-in is active */}
                     <div className="deco-text signin">
                         <h2>WELCOME<br/>BACK!</h2>
                     </div>
-                    {/* "SHREE VENKATESHWARA..." — shown on left when sign-up is active */}
                     <div className="deco-text signup">
                         <h2>SHREE VENKATESHWARA<br/>HI-TECH ENGINEERING<br/>COLLEGE</h2>
                     </div>
                 </div>
 
                 {/* ════════════════ SIGN-IN FORM ════════════════ */}
-                <div className="form-panel signin" style={isForgot ? { display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', overflowY: 'auto', paddingTop: '40px', paddingBottom: '40px' } : {}}>
+                <div className="form-panel signin" style={isForgot ? { display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' } : {}}>
                     <div className="form-inner">
                         {isForgot ? (
                             <>
@@ -254,13 +337,20 @@ const Auth = () => {
                                             value={forgotEmail}
                                             onChange={e => setForgotEmail(e.target.value)}
                                             autoComplete="email"
+                                            inputMode="email"
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                         />
                                         <Field
                                             id="forgot-reg-no"
                                             label="Register Number"
                                             type="text"
                                             value={forgotRegisterNumber}
-                                            onChange={e => setForgotRegisterNumber(e.target.value)}
+                                            onChange={e => setForgotRegisterNumber(e.target.value.toUpperCase())}
+                                            autoCapitalize="characters"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                         />
                                         <button className="submit-button" type="submit" disabled={forgotLoading}>
                                             {forgotLoading ? 'Submitting request…' : 'Submit Reset Request'}
@@ -279,13 +369,20 @@ const Auth = () => {
                                             value={forgotEmail}
                                             onChange={e => setForgotEmail(e.target.value)}
                                             autoComplete="email"
+                                            inputMode="email"
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                         />
                                         <Field
                                             id="forgot-reg-no-step2"
                                             label="Register Number"
                                             type="text"
                                             value={forgotRegisterNumber}
-                                            onChange={e => setForgotRegisterNumber(e.target.value)}
+                                            onChange={e => setForgotRegisterNumber(e.target.value.toUpperCase())}
+                                            autoCapitalize="characters"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                         />
                                         <Field
                                             id="forgot-new-pw"
@@ -296,6 +393,9 @@ const Auth = () => {
                                             showToggle
                                             showPw={showForgotPw}
                                             onToggle={() => setShowForgotPw(v => !v)}
+                                            autoComplete="new-password"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                         />
                                         <Field
                                             id="forgot-confirm-pw"
@@ -303,6 +403,9 @@ const Auth = () => {
                                             type="password"
                                             value={forgotConfirmPassword}
                                             onChange={e => setForgotConfirmPassword(e.target.value)}
+                                            autoComplete="new-password"
+                                            autoCorrect="off"
+                                            spellCheck="false"
                                         />
                                         <button className="submit-button" type="submit" disabled={forgotLoading}>
                                             {forgotLoading ? 'Updating password…' : 'Update Password'}
@@ -326,11 +429,14 @@ const Auth = () => {
                                 <form className="auth-form" onSubmit={handleLogin} noValidate>
                                     <Field
                                         id="login-username"
-                                        label="Username"
+                                        label="Username / Email"
                                         type="text"
                                         value={loginUser}
                                         onChange={e => setLoginUser(e.target.value)}
                                         autoComplete="username"
+                                        autoCapitalize="none"
+                                        autoCorrect="off"
+                                        spellCheck="false"
                                     />
                                     <Field
                                         id="login-password"
@@ -342,12 +448,14 @@ const Auth = () => {
                                         showToggle
                                         showPw={showLoginPw}
                                         onToggle={() => setShowLoginPw(v => !v)}
+                                        autoCorrect="off"
+                                        spellCheck="false"
                                     />
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 12 }}>
                                         <a 
                                             href="#" 
                                             onClick={(e) => { e.preventDefault(); setIsForgot(true); setForgotStep(1); setForgotError(''); setForgotSuccess(''); }} 
-                                            style={{ color: '#00d4e8', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}
+                                            style={{ color: '#00d4e8', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
                                         >
                                             Forgot Password?
                                         </a>
@@ -365,11 +473,10 @@ const Auth = () => {
                     </div>
                 </div>
 
-                {/* ════════════════ SIGN-UP FORM ════════════════ */}
-                <div className="form-panel signup" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', overflowY: 'auto', paddingTop: '40px', paddingBottom: '40px' }}>
+                {/* ════════════════ SIGN-UP FORM (WITH MOBILE WIZARD) ════════════════ */}
+                <div className="form-panel signup" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '40px', paddingBottom: '40px' }}>
                     <div className="form-inner">
                         {!checkingReg && !regOpen ? (
-                            /* registration closed state */
                             <>
                                 <h2 className="panel-title" style={{ color: '#f87171' }}>
                                     Registration Closed
@@ -385,120 +492,191 @@ const Auth = () => {
                         ) : (
                             <>
                                 <h2 className="panel-title">Create account</h2>
-                                <p  className="panel-sub ">Join the SVHEC quiz portal</p>
+                                <p  className="panel-sub">Join the SVHEC quiz portal</p>
+
+                                {/* Multi-step progress dots */}
+                                <div className="step-progress-container">
+                                    <div className={`step-dot ${regStep >= 1 ? 'completed' : ''} ${regStep === 1 ? 'active' : ''}`}>1</div>
+                                    <div className={`step-connector ${regStep >= 2 ? 'completed' : ''}`}></div>
+                                    <div className={`step-dot ${regStep >= 2 ? 'completed' : ''} ${regStep === 2 ? 'active' : ''}`}>2</div>
+                                </div>
 
                                 {regError && (
                                     <div className="auth-error">{regError}</div>
                                 )}
 
                                 <form className="auth-form" onSubmit={handleRegister} noValidate>
-                                    <Field
-                                        id="reg-name"
-                                        label="Full name"
-                                        type="text"
-                                        value={regName}
-                                        onChange={e => setRegName(e.target.value)}
-                                        autoComplete="name"
-                                    />
-                                    <Field
-                                        id="reg-email"
-                                        label="Email address"
-                                        type="email"
-                                        value={regEmail}
-                                        onChange={e => setRegEmail(e.target.value)}
-                                        autoComplete="email"
-                                    />
-                                    <Field
-                                        id="reg-password"
-                                        label="Password"
-                                        type="password"
-                                        value={regPass}
-                                        onChange={e => setRegPass(e.target.value)}
-                                        autoComplete="new-password"
-                                        showToggle
-                                        showPw={showRegPw}
-                                        onToggle={() => setShowRegPw(v => !v)}
-                                    />
-                                    <Field
-                                        id="reg-register-number"
-                                        label="Register Number"
-                                        type="text"
-                                        value={regRegisterNumber}
-                                        onChange={e => setRegRegisterNumber(e.target.value)}
-                                    />
-
-                                    <div className="saas-field">
-                                        <label className="saas-label" htmlFor="reg-year">Year</label>
-                                        <div className="saas-input-wrap">
-                                            <select
-                                                id="reg-year"
-                                                className="saas-input"
-                                                value={regYear}
-                                                onChange={e => setRegYear(e.target.value)}
-                                                style={{ cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto', background: '#1a2235', color: '#ffffff' }}
-                                                required
+                                    <AnimatePresence mode="wait">
+                                        {regStep === 1 ? (
+                                            <motion.div
+                                                key="step1"
+                                                initial={{ opacity: 0, x: -15 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: 15 }}
+                                                transition={{ duration: 0.2 }}
                                             >
-                                                <option value="" disabled>Select Year</option>
-                                                <option value="I">I Year</option>
-                                                <option value="II">II Year</option>
-                                                <option value="III">III Year</option>
-                                                <option value="IV">IV Year</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="saas-field">
-                                        <label className="saas-label" htmlFor="reg-department">Department</label>
-                                        <div className="saas-input-wrap">
-                                            <select
-                                                id="reg-department"
-                                                className="saas-input"
-                                                value={regDepartment}
-                                                onChange={e => setRegDepartment(e.target.value)}
-                                                style={{ cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto', background: '#1a2235', color: '#ffffff' }}
-                                                required
+                                                <Field
+                                                    id="reg-name"
+                                                    label="Full name"
+                                                    type="text"
+                                                    value={regName}
+                                                    onChange={e => setRegName(e.target.value)}
+                                                    autoComplete="name"
+                                                    autoCapitalize="words"
+                                                    autoCorrect="off"
+                                                    spellCheck="false"
+                                                    isValid={nameIsValid}
+                                                    validationMessage="Name must be at least 3 characters"
+                                                />
+                                                <Field
+                                                    id="reg-email"
+                                                    label="Email address"
+                                                    type="email"
+                                                    value={regEmail}
+                                                    onChange={e => setRegEmail(e.target.value)}
+                                                    autoComplete="email"
+                                                    inputMode="email"
+                                                    autoCapitalize="none"
+                                                    autoCorrect="off"
+                                                    spellCheck="false"
+                                                    isValid={emailIsValid}
+                                                    validationMessage="Please enter a valid email address"
+                                                />
+                                                <Field
+                                                    id="reg-password"
+                                                    label="Password"
+                                                    type="password"
+                                                    value={regPass}
+                                                    onChange={e => setRegPass(e.target.value)}
+                                                    autoComplete="new-password"
+                                                    showToggle
+                                                    showPw={showRegPw}
+                                                    onToggle={() => setShowRegPw(v => !v)}
+                                                    autoCorrect="off"
+                                                    spellCheck="false"
+                                                    isValid={passIsValid}
+                                                    validationMessage="Password must be at least 6 characters"
+                                                />
+                                                
+                                                <button 
+                                                    className="submit-button" 
+                                                    type="button" 
+                                                    onClick={handleNextStep}
+                                                    style={{ marginTop: 8 }}
+                                                >
+                                                    Continue ➔
+                                                </button>
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                key="step2"
+                                                initial={{ opacity: 0, x: 15 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -15 }}
+                                                transition={{ duration: 0.2 }}
                                             >
-                                                <option value="" disabled>Select Department</option>
-                                                <option value="ECE">ECE (Electronics & Communication)</option>
-                                                <option value="EEE">EEE (Electrical & Electronics)</option>
-                                                <option value="CSE">CSE (Computer Science & Eng)</option>
-                                                <option value="IT">IT (Information Technology)</option>
-                                                <option value="AIDS">AIDS (AI & Data Science)</option>
-                                                <option value="BME">BME (Biomedical Engineering)</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                                <Field
+                                                    id="reg-register-number"
+                                                    label="Register Number"
+                                                    type="text"
+                                                    value={regRegisterNumber}
+                                                    onChange={e => setRegRegisterNumber(e.target.value.toUpperCase())}
+                                                    autoCapitalize="characters"
+                                                    autoCorrect="off"
+                                                    spellCheck="false"
+                                                    isValid={regNoIsValid}
+                                                    validationMessage="Register number must be at least 5 characters"
+                                                />
 
-                                    <div className="saas-field">
-                                        <label className="saas-label" htmlFor="reg-college">College</label>
-                                        <div className="saas-input-wrap">
-                                            <select
-                                                id="reg-college"
-                                                className="saas-input"
-                                                value={regCollege}
-                                                onChange={e => setRegCollege(e.target.value)}
-                                                style={{ cursor: 'pointer', appearance: 'auto', WebkitAppearance: 'auto', background: '#1a2235', color: '#ffffff' }}
-                                                required
-                                            >
-                                                <option value="SVHEC">SVHEC</option>
-                                                <option value="Others">Others</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                                {/* Segmented Picker for Year */}
+                                                <div className="saas-field">
+                                                    <label className="saas-label">Academic Year</label>
+                                                    <div className="picker-group">
+                                                        {academicYears.map(item => (
+                                                            <button
+                                                                key={item.value}
+                                                                type="button"
+                                                                className={`picker-btn ${regYear === item.value ? 'active' : ''}`}
+                                                                onClick={() => setRegYear(item.value)}
+                                                            >
+                                                                {item.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
 
-                                    {regCollege === 'Others' && (
-                                        <Field
-                                            id="reg-other-college"
-                                            label="College Name"
-                                            type="text"
-                                            value={regOtherCollegeName}
-                                            onChange={e => setRegOtherCollegeName(e.target.value)}
-                                            placeholder="Enter your college name"
-                                        />
-                                    )}
-                                    <button className="submit-button" type="submit" disabled={regLoading}>
-                                        {regLoading ? 'Creating account…' : 'Create account'}
-                                    </button>
+                                                {/* Grid Chip Picker for Department */}
+                                                <div className="saas-field">
+                                                    <label className="saas-label">Department</label>
+                                                    <div className="dept-grid">
+                                                        {departmentChips.map(item => (
+                                                            <button
+                                                                key={item.value}
+                                                                type="button"
+                                                                className={`dept-chip ${regDepartment === item.value ? 'active' : ''}`}
+                                                                onClick={() => setRegDepartment(item.value)}
+                                                            >
+                                                                <span className="dept-chip-title">{item.label}</span>
+                                                                <span className="dept-chip-sub" title={item.desc}>{item.desc}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* College Select Toggle */}
+                                                <div className="saas-field">
+                                                    <label className="saas-label">College</label>
+                                                    <div className="college-toggle-group">
+                                                        <button
+                                                            type="button"
+                                                            className={`college-toggle-btn ${regCollege === 'SVHEC' ? 'active' : ''}`}
+                                                            onClick={() => { setRegCollege('SVHEC'); setRegOtherCollegeName(''); }}
+                                                        >
+                                                            SVHEC
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`college-toggle-btn ${regCollege === 'Others' ? 'active' : ''}`}
+                                                            onClick={() => setRegCollege('Others')}
+                                                        >
+                                                            Others
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {regCollege === 'Others' && (
+                                                    <Field
+                                                        id="reg-other-college"
+                                                        label="College Name"
+                                                        type="text"
+                                                        value={regOtherCollegeName}
+                                                        onChange={e => setRegOtherCollegeName(e.target.value)}
+                                                        placeholder="Enter your college name"
+                                                        autoCapitalize="words"
+                                                        spellCheck="false"
+                                                    />
+                                                )}
+
+                                                <div className="wizard-actions">
+                                                    <button 
+                                                        className="btn-prev" 
+                                                        type="button" 
+                                                        onClick={() => setRegStep(1)}
+                                                    >
+                                                        Back
+                                                    </button>
+                                                    <button 
+                                                        className="submit-button btn-next" 
+                                                        type="submit" 
+                                                        disabled={regLoading}
+                                                    >
+                                                        {regLoading ? 'Creating account…' : 'Register'}
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
                                     <div className="switch-link">
                                         Already have an account?{' '}
                                         <a href="#" onClick={goToLogin}>Sign in</a>

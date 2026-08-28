@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import QuizPage from './pages/QuizPage';
 import Leaderboard from './pages/Leaderboard';
 import MyResults from './pages/MyResults';
+import ProfilePage from './pages/ProfilePage';
 
 /* ── Guards ─────────────────────────────────────────── */
 const PrivateRoute = ({ children, roles }) => {
@@ -191,6 +192,7 @@ const Header = () => {
             ) : (
               /* User Navigation */
               <div style={{ display: 'flex', gap: 4 }}>
+                <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/profile')}>Profile</button>
                 <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/my-results')}>Results</button>
                 <button className="nav-link" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
               </div>
@@ -242,6 +244,7 @@ const Header = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
             <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/')}>Dashboard</button>
+            <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/profile')}>Profile</button>
             <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/my-results')}>Results</button>
             <button className="nav-link" style={{ paddingLeft: 0, fontSize: 18, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => navigate('/leaderboard')}>Leaderboard</button>
           </div>
@@ -290,6 +293,7 @@ const AppRoutes = () => {
         </PrivateRoute>
       } />
       <Route path="/quiz/:quizCode" element={<PrivateRoute roles={['user', 'admin']}><QuizPage /></PrivateRoute>} />
+      <Route path="/profile" element={<PrivateRoute roles={['user']}><ProfilePage /></PrivateRoute>} />
       <Route path="/leaderboard" element={<PrivateRoute roles={['user','admin']}><Leaderboard /></PrivateRoute>} />
       <Route path="/my-results"  element={<PrivateRoute roles={['user']}><MyResults /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminDashboard /></PrivateRoute>} />

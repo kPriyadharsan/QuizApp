@@ -941,10 +941,9 @@ export const getLeaderboard = async (req, res) => {
             }
         });
 
-        // Convert map to array, sort by score descending, and limit to top 10
+        // Convert map to array, sort by score descending
         const leaderboard = Object.values(bestScoresMap)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 10);
+            .sort((a, b) => b.score - a.score);
 
         res.json(leaderboard);
     } catch (error) {

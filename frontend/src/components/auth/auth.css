@@ -18,13 +18,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at 10% 20%, rgba(10, 15, 30, 1) 0%, rgba(5, 7, 12, 1) 100%);
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
     padding: 24px 16px;
     position: relative;
     overflow: hidden;
 }
 
-/* Glowing ambient blobs in background for premium dark mode feel */
+/* Soft ambient glow blobs */
 .auth-page-container::before,
 .auth-page-container::after {
     content: '';
@@ -33,39 +33,38 @@
     height: 300px;
     border-radius: 50%;
     filter: blur(120px);
-    opacity: 0.15;
+    opacity: 0.25;
     z-index: 0;
     pointer-events: none;
 }
 .auth-page-container::before {
-    background: #00d4e8;
+    background: #6c63ff;
     top: -50px;
     left: -50px;
 }
 .auth-page-container::after {
-    background: #6c63ff;
+    background: #00d4e8;
     bottom: -50px;
     right: -50px;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   WRAPPER — 980 × 640 card with glassmorphism
+   WRAPPER — 980 × 640 card with frosted glass
    ═══════════════════════════════════════════════════════════ */
 .auth-wrapper {
     position: relative;
     width: 100%;
     max-width: 980px;
     height: 640px;
-    border-radius: 20px;
+    border-radius: 24px;
     overflow: hidden;
-    background: rgba(13, 17, 23, 0.8);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow:
-        0 0 0 1px rgba(0, 212, 232, 0.05),
-        0 30px 70px rgba(0, 0, 0, 0.6),
-        0 10px 30px rgba(0, 0, 0, 0.4);
+        0 10px 30px rgba(0, 0, 0, 0.04),
+        0 30px 70px rgba(0, 0, 0, 0.06);
     z-index: 1;
     display: flex;
     transition: height 0.3s ease;
@@ -85,12 +84,12 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DIAGONAL TEAL PANEL
+   DIAGONAL SLIDING PANEL (Light Indigo Gradient)
    ═══════════════════════════════════════════════════════════ */
 .deco-panel {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, #09687a 0%, #00b4c4 100%);
+    background: linear-gradient(135deg, #6c63ff 0%, #3f3b9c 100%);
     clip-path: polygon(81% 0, 100% 0, 100% 100%, 19% 100%);
     transition: clip-path 1.2s cubic-bezier(0.65, 0, 0.35, 1);
     display: flex;
@@ -103,7 +102,7 @@
     clip-path: polygon(0 0, 81% 0, 19% 100%, 0 100%);
 }
 
-/* ── Welcome text inside teal panel ── */
+/* ── Welcome text inside panel ── */
 .deco-text {
     position: absolute;
     display: flex;
@@ -146,7 +145,7 @@
     line-height: 1.4;
     text-align: center;
     padding: 0 40px;
-    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -176,8 +175,8 @@
 /* Heading styles */
 .panel-title {
     font-size: 28px;
-    font-weight: 700;
-    color: #ffffff;
+    font-weight: 800;
+    color: #1e293b;
     letter-spacing: -0.5px;
     line-height: 1.2;
     margin-bottom: 6px;
@@ -185,8 +184,8 @@
 
 .panel-sub {
     font-size: 14px;
-    font-weight: 400;
-    color: #a0aec0;
+    font-weight: 500;
+    color: #64748b;
     line-height: 1.5;
     margin-bottom: 0;
     white-space: normal;
@@ -213,7 +212,7 @@
 .saas-label {
     font-size: 13px;
     font-weight: 600;
-    color: #e2e8f0;
+    color: #475569;
     letter-spacing: 0.1px;
     user-select: none;
 }
@@ -230,30 +229,30 @@
     width: 100%;
     height: 48px;
     padding: 0 16px;
-    background: #151d30;
-    border: 1.5px solid #223250;
-    border-radius: 10px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
     font-size: 14px;
-    font-weight: 400;
-    color: #ffffff;
+    font-weight: 500;
+    color: #1e293b;
     outline: none;
     transition: all 0.2s ease;
     -webkit-appearance: none;
     appearance: none;
 }
 
-.saas-input::placeholder { color: #4e6080; }
+.saas-input::placeholder { color: #94a3b8; }
 
 .saas-input.has-eye { padding-right: 48px; }
 
 /* Focus and hover state */
 .saas-input:hover {
-    border-color: #2b3d60;
+    border-color: #94a3b8;
 }
 .saas-input:focus {
-    border-color: #00d4e8;
-    background: #121a2b;
-    box-shadow: 0 0 0 3px rgba(0, 212, 232, 0.15);
+    border-color: #6c63ff;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.1);
 }
 
 /* Eye password toggle button */
@@ -269,13 +268,13 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: #586d90;
-    border-radius: 0 10px 10px 0;
+    color: #64748b;
+    border-radius: 0 12px 12px 0;
     transition: color 0.2s ease;
     z-index: 1;
     padding: 0;
 }
-.eye-toggle:hover { color: #00d4e8; }
+.eye-toggle:hover { color: #6c63ff; }
 .eye-toggle svg {
     display: block;
     width: 18px; height: 18px;
@@ -294,10 +293,10 @@
 }
 .picker-btn {
     padding: 11px 8px;
-    background: #151d30;
-    border: 1.5px solid #223250;
-    border-radius: 10px;
-    color: #cbd5e1;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    color: #475569;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -308,14 +307,14 @@
     -webkit-tap-highlight-color: transparent;
 }
 .picker-btn:hover {
-    border-color: #2b3d60;
+    border-color: #cbd5e1;
 }
 .picker-btn.active {
-    background: rgba(0, 212, 232, 0.1);
-    border-color: #00d4e8;
-    color: #00d4e8;
+    background: rgba(108, 99, 255, 0.08);
+    border-color: #6c63ff;
+    color: #6c63ff;
     font-weight: 700;
-    box-shadow: 0 0 10px rgba(0, 212, 232, 0.1);
+    box-shadow: 0 0 10px rgba(108, 99, 255, 0.05);
 }
 
 /* Department Grid (Chips) */
@@ -327,10 +326,10 @@
 }
 .dept-chip {
     padding: 10px 4px;
-    background: #151d30;
-    border: 1.5px solid #223250;
-    border-radius: 10px;
-    color: #cbd5e1;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    color: #475569;
     cursor: pointer;
     text-align: center;
     transition: all 0.2s ease;
@@ -344,13 +343,13 @@
     -webkit-tap-highlight-color: transparent;
 }
 .dept-chip:hover {
-    border-color: #2b3d60;
+    border-color: #cbd5e1;
 }
 .dept-chip.active {
-    background: rgba(0, 212, 232, 0.1);
-    border-color: #00d4e8;
-    color: #00d4e8;
-    box-shadow: 0 0 10px rgba(0, 212, 232, 0.1);
+    background: rgba(108, 99, 255, 0.08);
+    border-color: #6c63ff;
+    color: #6c63ff;
+    box-shadow: 0 0 10px rgba(108, 99, 255, 0.05);
 }
 .dept-chip-title {
     font-size: 13px;
@@ -367,16 +366,16 @@
     width: 95%;
 }
 .dept-chip.active .dept-chip-sub {
-    color: #00d4e8;
+    color: #6c63ff;
     opacity: 0.8;
 }
 
 /* College Toggle (SVHEC / Others) */
 .college-toggle-group {
     display: flex;
-    background: #151d30;
-    border: 1.5px solid #223250;
-    border-radius: 10px;
+    background: #f1f5f9;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
     padding: 4px;
     gap: 4px;
 }
@@ -385,11 +384,11 @@
     padding: 8px 12px;
     border: none;
     background: none;
-    color: #94a3b8;
+    color: #64748b;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    border-radius: 7px;
+    border-radius: 9px;
     transition: all 0.2s ease;
     text-align: center;
     user-select: none;
@@ -397,9 +396,10 @@
     -webkit-tap-highlight-color: transparent;
 }
 .college-toggle-btn.active {
-    background: #00d4e8;
-    color: #0d1117;
+    background: #6c63ff;
+    color: #ffffff;
     font-weight: 700;
+    box-shadow: 0 4px 10px rgba(108, 99, 255, 0.25);
 }
 
 /* ── Wizard step progress ── */
@@ -416,8 +416,8 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #151d30;
-    border: 1.5px solid #223250;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
     color: #64748b;
     font-size: 11px;
     font-weight: 700;
@@ -427,25 +427,25 @@
     transition: all 0.3s ease;
 }
 .step-dot.active {
-    border-color: #00d4e8;
-    background: rgba(0, 212, 232, 0.08);
-    color: #00d4e8;
-    box-shadow: 0 0 8px rgba(0, 212, 232, 0.15);
+    border-color: #6c63ff;
+    background: rgba(108, 99, 255, 0.08);
+    color: #6c63ff;
+    box-shadow: 0 0 8px rgba(108, 99, 255, 0.15);
 }
 .step-dot.completed {
-    background: #00d4e8;
-    border-color: #00d4e8;
-    color: #0d1117;
+    background: #6c63ff;
+    border-color: #6c63ff;
+    color: #ffffff;
 }
 .step-connector {
     flex: 1;
     height: 2px;
-    background: #223250;
+    background: #e2e8f0;
     max-width: 50px;
     transition: background 0.3s ease;
 }
 .step-connector.completed {
-    background: #00d4e8;
+    background: #6c63ff;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -455,25 +455,25 @@
     width: 100%;
     height: 50px;
     margin-top: 8px;
-    background: transparent;
-    border: 1.5px solid #00d4e8;
-    border-radius: 10px;
+    background: #6c63ff;
+    border: none;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
-    color: #00d4e8;
+    font-weight: 700;
+    color: #ffffff;
     letter-spacing: 0.2px;
     transition: all 0.2s ease;
     outline: none;
     -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 12px rgba(108, 99, 255, 0.2);
 }
 .submit-button:hover:not(:disabled) {
-    background: rgba(0, 212, 232, 0.08);
-    box-shadow: 0 0 15px rgba(0, 212, 232, 0.2);
-    color: #ffffff;
+    background: #5b52e6;
+    box-shadow: 0 6px 16px rgba(108, 99, 255, 0.3);
 }
 .submit-button:active:not(:disabled) { transform: scale(0.98); }
-.submit-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.submit-button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
 
 /* Wizard action buttons row */
 .wizard-actions {
@@ -484,10 +484,10 @@
 .btn-prev {
     flex: 1;
     height: 50px;
-    background: #151d30;
-    border: 1.5px solid #223250;
-    border-radius: 10px;
-    color: #94a3b8;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    color: #475569;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -495,8 +495,8 @@
     outline: none;
 }
 .btn-prev:hover {
-    border-color: #2b3d60;
-    color: #e2e8f0;
+    border-color: #94a3b8;
+    color: #1e293b;
 }
 .btn-prev:active { transform: scale(0.98); }
 
@@ -513,20 +513,20 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    font-weight: 500;
+    font-weight: 600;
 }
 .validation-hint.valid {
-    color: #34d399;
+    color: #10b981;
 }
 .validation-hint.invalid {
-    color: #f87171;
+    color: #ef4444;
 }
 
 .saas-input.is-valid {
-    border-color: rgba(52, 211, 153, 0.4);
+    border-color: rgba(16, 185, 129, 0.4);
 }
 .saas-input.is-invalid {
-    border-color: rgba(248, 113, 113, 0.4);
+    border-color: rgba(239, 68, 68, 0.4);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -540,22 +540,22 @@
     line-height: 1.5;
 }
 .switch-link a {
-    color: #00d4e8;
-    font-weight: 600;
+    color: #6c63ff;
+    font-weight: 700;
     text-decoration: none;
     transition: color 0.2s;
 }
-.switch-link a:hover { color: #ffffff; }
+.switch-link a:hover { color: #5b52e6; }
 
 /* Errors display box */
 .auth-error {
     width: 100%;
     background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    border-radius: 10px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
     padding: 10px 14px;
     font-size: 13px;
-    color: #f87171;
+    color: #ef4444;
     line-height: 1.45;
     margin-bottom: 14px;
 }
@@ -564,16 +564,16 @@
     margin-top: 24px;
     text-align: center;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.25);
+    color: #64748b;
     z-index: 1;
 }
 .auth-footer a {
-    color: #00d4e8;
+    color: #6c63ff;
     text-decoration: none;
     font-weight: 600;
     transition: color 0.2s;
 }
-.auth-footer a:hover { color: #ffffff; }
+.auth-footer a:hover { color: #5b52e6; }
 
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE LAYOUT BREAKPOINTS
@@ -586,7 +586,7 @@
         height: auto;
         min-height: 0;
         flex-direction: column;
-        overflow: hidden; /* Clips the sliding components cleanly inside the card */
+        overflow: hidden;
     }
 
     .deco-panel { display: none; }
@@ -600,9 +600,9 @@
     .mobile-auth-tabs {
         display: flex;
         position: relative;
-        background: #151d30;
-        border: 1.5px solid #223250;
-        border-radius: 12px;
+        background: #f1f5f9;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
         padding: 4px;
         margin-bottom: 24px;
         width: 100%;
@@ -613,11 +613,11 @@
         padding: 10px 16px;
         border: none;
         background: none;
-        color: #94a3b8;
+        color: #64748b;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        border-radius: 9px;
+        border-radius: 10px;
         transition: color 0.3s ease;
         text-align: center;
         z-index: 2;
@@ -632,8 +632,8 @@
         top: 4px;
         bottom: 4px;
         width: calc(50% - 4px);
-        background: linear-gradient(135deg, #09687a 0%, #00b4c4 100%);
-        border-radius: 8px;
+        background: #6c63ff;
+        border-radius: 10px;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 1;
     }
@@ -661,8 +661,8 @@
     }
 
     .auth-wrapper {
-        border-radius: 16px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
     }
 
     .form-panel {
@@ -675,26 +675,24 @@
 
     .saas-input {
         height: 48px;
-        font-size: 16px; /* VERY IMPORTANT: prevents mobile Safari auto-zoom */
-        border-radius: 8px;
+        font-size: 16px;
+        border-radius: 10px;
         padding: 0 14px;
     }
     
-    /* Make sure eye toggles align to 16px font inputs */
     .eye-toggle {
-        border-radius: 0 8px 8px 0;
+        border-radius: 0 10px 10px 0;
     }
     
-    /* Picker items fit better */
     .picker-btn {
         padding: 10px 6px;
         font-size: 12px;
-        border-radius: 8px;
+        border-radius: 10px;
     }
     
     .dept-chip {
         padding: 9px 2px;
-        border-radius: 8px;
+        border-radius: 10px;
     }
     .dept-chip-title {
         font-size: 12px;
@@ -704,12 +702,12 @@
     }
 
     .college-toggle-group, .college-toggle-btn {
-        border-radius: 8px;
+        border-radius: 10px;
     }
 
     .submit-button, .btn-prev {
         height: 48px;
-        border-radius: 8px;
+        border-radius: 10px;
     }
     
     .saas-field {

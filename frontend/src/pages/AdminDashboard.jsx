@@ -94,6 +94,7 @@ const AdminDashboard = () => {
     const [usersTotal, setUsersTotal] = useState(0);
 
     const [userSubTab, setUserSubTab] = useState('approved');
+    const [quizzesSubTab, setQuizzesSubTab] = useState('active');
     const [pendingUsers, setPendingUsers] = useState([]);
     const [pendingPage, setPendingPage] = useState(1);
     const [pendingPages, setPendingPages] = useState(1);
@@ -966,6 +967,14 @@ const AdminDashboard = () => {
         await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-leaderboard`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
         setOpenDropdownId(null); fetchQuizzes();
     };
+    const handleToggleArchive = async (quizId) => {
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/archive-quiz`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        setOpenDropdownId(null); fetchQuizzes();
+    };
+    const handleToggleAnswers = async (quizId) => {
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-answers`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        setOpenDropdownId(null); fetchQuizzes();
+    };
     const handleStopQuiz = async (quizId) => {
         if (!window.confirm('Stop this quiz? Users won\'t be able to take it anymore.')) return;
         await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/stop-quiz`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
@@ -1431,88 +1440,127 @@ const AdminDashboard = () => {
                                 <h3 style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)', margin: 0 }}>All Quizzes</h3>
                                 <NeuButton small onClick={() => setActiveTab('create-quiz')}>＋ Create New Quiz</NeuButton>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {quizzes.length === 0 && (
-                                    <div style={{ ...neu.card, padding: '32px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: 14 }}>
-                                        No quizzes yet. Create your first quiz using the tab above.
-                                    </div>
-                                )}
-                                {quizzes.map(quiz => (
-                                    <div key={quiz._id} style={{ ...neu.card, padding: '18px 22px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)' }}>{quiz.title}</span>
-                                                    <span style={{
-                                                        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100,
-                                                        background: quiz.status === 'LIVE' ? 'rgba(48,209,88,0.1)' : 
-                                                                    quiz.status === 'SCHEDULED' ? 'rgba(255,159,10,0.1)' :
-                                                                    quiz.status === 'COMPLETED' ? 'rgba(113,128,150,0.1)' : 'rgba(108,99,255,0.1)',
-                                                        color: quiz.status === 'LIVE' ? '#1a7a3a' :
-                                                               quiz.status === 'SCHEDULED' ? '#b25e00' :
-                                                               quiz.status === 'COMPLETED' ? '#4a5568' : 'var(--brand-accent)'
-                                                    }}>
-                                                        {quiz.status === 'LIVE' ? '🟢 In Progress' :
-                                                         quiz.status === 'SCHEDULED' ? '📅 Scheduled' :
-                                                         quiz.status === 'COMPLETED' ? '🔒 Concluded' : '📝 Drafting'}
-                                                    </span>
-                                                    {quiz.resultsPublished && <span className="badge badge-info" style={{ fontSize: 11 }}>Results ✓</span>}
-                                                    {quiz.leaderboardPublished && <span className="badge badge-success" style={{ fontSize: 11 }}>Board ✓</span>}
-                                                    {quiz.liveMonitoringEnabled && <span className="badge badge-warning" style={{ fontSize: 11, background: 'rgba(255,159,10,0.12)', color: '#b25e00' }}>📡 Monitoring Enabled</span>}
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
-                                                    <span>🕐 {quiz.duration} min</span>
-                                                    <span>🔑 {quiz.quizCode}</span>
-                                                    {quiz.startTime && <span>📅 {(() => {
-                                                        try {
-                                                            return new Date(quiz.startTime).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-                                                        } catch (e) {
-                                                            return String(quiz.startTime);
-                                                        }
-                                                    })()}</span>}
-                                                </div>
-                                            </div>
 
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                <NeuButton small onClick={() => fetchLiveAttendees(quiz._id)}>👥 Attendees</NeuButton>
-                                                <div style={{ position: 'relative' }} ref={openDropdownId === quiz._id ? dropdownRef : null}>
-                                                    <NeuButton small onClick={() => toggleDropdown(quiz._id)}>⋯ More</NeuButton>
-                                                    {openDropdownId === quiz._id && (
-                                                        <div style={{
-                                                            position: 'absolute', right: 0, top: '100%', marginTop: 8, zIndex: 50,
-                                                            ...neu.card, padding: '8px', minWidth: 200,
-                                                            display: 'flex', flexDirection: 'column', gap: 4
+                            {/* Subtabs for Active vs Archived Quizzes */}
+                            <div style={{ display: 'flex', gap: 12, marginBottom: 16, borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 12 }}>
+                                <button 
+                                    onClick={() => setQuizzesSubTab('active')} 
+                                    className={`btn btn-sm btn-pill ${quizzesSubTab === 'active' ? 'btn-primary' : 'btn-ghost'}`}
+                                >
+                                    📋 Active Quizzes
+                                </button>
+                                <button 
+                                    onClick={() => setQuizzesSubTab('archived')} 
+                                    className={`btn btn-sm btn-pill ${quizzesSubTab === 'archived' ? 'btn-primary' : 'btn-ghost'}`}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                >
+                                    📥 Archived Quizzes
+                                    {quizzes.filter(q => q.isArchived).length > 0 && (
+                                        <span style={{ background: '#718096', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10 }}>
+                                            {quizzes.filter(q => q.isArchived).length}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {(() => {
+                                    const displayedQuizzes = quizzes.filter(quiz => 
+                                        quizzesSubTab === 'active' ? !quiz.isArchived : quiz.isArchived
+                                    );
+
+                                    if (displayedQuizzes.length === 0) {
+                                        return (
+                                            <div style={{ ...neu.card, padding: '32px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: 14 }}>
+                                                {quizzesSubTab === 'active' 
+                                                    ? 'No active quizzes yet. Create one or check the archives.' 
+                                                    : 'No archived quizzes yet.'}
+                                            </div>
+                                        );
+                                    }
+
+                                    return displayedQuizzes.map(quiz => (
+                                        <div key={quiz._id} style={{ ...neu.card, padding: '18px 22px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text-primary)' }}>{quiz.title}</span>
+                                                        <span style={{
+                                                            fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100,
+                                                            background: quiz.status === 'LIVE' ? 'rgba(48,209,88,0.1)' : 
+                                                                        quiz.status === 'SCHEDULED' ? 'rgba(255,159,10,0.1)' :
+                                                                        quiz.status === 'COMPLETED' ? 'rgba(113,128,150,0.1)' : 'rgba(108,99,255,0.1)',
+                                                            color: quiz.status === 'LIVE' ? '#1a7a3a' :
+                                                                   quiz.status === 'SCHEDULED' ? '#b25e00' :
+                                                                   quiz.status === 'COMPLETED' ? '#4a5568' : 'var(--brand-accent)'
                                                         }}>
-                                                            {[
-                                                                { icon: '⚙️', label: 'Edit Settings', action: () => { handleEditQuizClick(quiz); setOpenDropdownId(null); } },
-                                                                { icon: '👁', label: 'Admin Preview', action: () => { window.open(`/quiz/${quiz.quizCode}?preview=true`, '_blank'); setOpenDropdownId(null); } },
-                                                                { icon: quiz.resultsPublished ? '🙈' : '📤', label: quiz.resultsPublished ? 'Hide Results' : 'Publish Results', action: () => handleToggleResults(quiz._id) },
-                                                                { icon: quiz.leaderboardPublished ? '🙈' : '🏆', label: quiz.leaderboardPublished ? 'Hide Leaderboard' : 'Publish Leaderboard', action: () => handleToggleLeaderboard(quiz._id) },
-                                                                ...(new Date().getTime() < new Date(quiz.startTime).getTime() ? [
-                                                                    { icon: '📡', label: quiz.liveMonitoringEnabled ? 'Disable Monitoring' : 'Enable Monitoring', action: () => handleToggleMonitoring(quiz._id) }
-                                                                ] : []),
-                                                                { icon: '⏹', label: 'Stop Quiz', action: () => handleStopQuiz(quiz._id), color: '#cc000a' },
-                                                                { icon: '🗑', label: 'Delete Quiz', action: () => handleDeleteQuiz(quiz._id), color: '#cc000a' },
-                                                            ].map(item => (
-                                                                <button key={item.label} onClick={item.action} style={{
-                                                                    padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                                                    background: 'transparent', cursor: 'pointer', textAlign: 'left',
-                                                                    fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
-                                                                    color: item.color || 'var(--color-text-primary)',
-                                                                    transition: 'background var(--transition-fast)'
-                                                                }}
-                                                                onMouseEnter={e => e.target.style.background = 'rgba(0,0,0,0.04)'}
-                                                                onMouseLeave={e => e.target.style.background = 'transparent'}>
-                                                                    {item.icon} {item.label}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                            {quiz.status === 'LIVE' ? '🟢 In Progress' :
+                                                             quiz.status === 'SCHEDULED' ? '📅 Scheduled' :
+                                                             quiz.status === 'COMPLETED' ? '🔒 Concluded' : '📝 Drafting'}
+                                                        </span>
+                                                        {quiz.resultsPublished && <span className="badge badge-info" style={{ fontSize: 11 }}>Results Published ✓</span>}
+                                                        {quiz.showCorrectAnswers && <span className="badge" style={{ fontSize: 11, background: 'rgba(52,211,153,0.15)', color: '#065f46' }}>Answers Published ✓</span>}
+                                                        {quiz.leaderboardPublished && <span className="badge badge-success" style={{ fontSize: 11 }}>Board ✓</span>}
+                                                        {quiz.liveMonitoringEnabled && <span className="badge badge-warning" style={{ fontSize: 11, background: 'rgba(255,159,10,0.12)', color: '#b25e00' }}>📡 Monitoring Enabled</span>}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
+                                                        <span>🕐 {quiz.duration} min</span>
+                                                        <span>🔑 {quiz.quizCode}</span>
+                                                        {quiz.startTime && <span>📅 {(() => {
+                                                            try {
+                                                                return new Date(quiz.startTime).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+                                                            } catch (e) {
+                                                                return String(quiz.startTime);
+                                                            }
+                                                        })()}</span>}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                    <NeuButton small onClick={() => fetchLiveAttendees(quiz._id)}>👥 Attendees</NeuButton>
+                                                    <div style={{ position: 'relative' }} ref={openDropdownId === quiz._id ? dropdownRef : null}>
+                                                        <NeuButton small onClick={() => toggleDropdown(quiz._id)}>⋯ More</NeuButton>
+                                                        {openDropdownId === quiz._id && (
+                                                            <div style={{
+                                                                position: 'absolute', right: 0, top: '100%', marginTop: 8, zIndex: 50,
+                                                                ...neu.card, padding: '8px', minWidth: 200,
+                                                                display: 'flex', flexDirection: 'column', gap: 4
+                                                            }}>
+                                                                {[
+                                                                    { icon: '⚙️', label: 'Edit Settings', action: () => { handleEditQuizClick(quiz); setOpenDropdownId(null); } },
+                                                                    { icon: '👁', label: 'Admin Preview', action: () => { window.open(`/quiz/${quiz.quizCode}?preview=true`, '_blank'); setOpenDropdownId(null); } },
+                                                                    { icon: quiz.resultsPublished ? '🙈' : '📤', label: quiz.resultsPublished ? 'Hide Results' : 'Publish Results', action: () => handleToggleResults(quiz._id) },
+                                                                    ...(quiz.resultsPublished ? [
+                                                                        { icon: quiz.showCorrectAnswers ? '🔒' : '🔑', label: quiz.showCorrectAnswers ? 'Hide Answer Key' : 'Publish Answer Key', action: () => handleToggleAnswers(quiz._id) }
+                                                                    ] : []),
+                                                                    { icon: quiz.leaderboardPublished ? '🙈' : '🏆', label: quiz.leaderboardPublished ? 'Hide Leaderboard' : 'Publish Leaderboard', action: () => handleToggleLeaderboard(quiz._id) },
+                                                                    { icon: quiz.isArchived ? '📤' : '📥', label: quiz.isArchived ? 'Unarchive Quiz' : 'Archive Quiz', action: () => handleToggleArchive(quiz._id) },
+                                                                    ...(new Date().getTime() < new Date(quiz.startTime).getTime() ? [
+                                                                        { icon: '📡', label: quiz.liveMonitoringEnabled ? 'Disable Monitoring' : 'Enable Monitoring', action: () => handleToggleMonitoring(quiz._id) }
+                                                                    ] : []),
+                                                                    { icon: '⏹', label: 'Stop Quiz', action: () => handleStopQuiz(quiz._id), color: '#cc000a' },
+                                                                    { icon: '🗑', label: 'Delete Quiz', action: () => handleDeleteQuiz(quiz._id), color: '#cc000a' },
+                                                                ].map(item => (
+                                                                    <button key={item.label} onClick={item.action} style={{
+                                                                        padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                                                        background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                                                                        fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
+                                                                        color: item.color || 'var(--color-text-primary)',
+                                                                        transition: 'background var(--transition-fast)'
+                                                                    }}
+                                                                    onMouseEnter={e => e.target.style.background = 'rgba(0,0,0,0.04)'}
+                                                                    onMouseLeave={e => e.target.style.background = 'transparent'}>
+                                                                        {item.icon} {item.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ));
+                                })()}
                             </div>
                         </div>
 

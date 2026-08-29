@@ -253,12 +253,21 @@ const UserDashboard = () => {
                                                     ❌ Flagged / Evicted
                                                 </button>
                                             ) : quiz.userAttempt && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(quiz.userAttempt.status) ? (
-                                                <button 
-                                                    disabled
-                                                    className="w-full h-11 rounded-xl bg-green-50 text-green-700 border border-green-100 font-bold text-sm tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
-                                                >
-                                                    ✓ Completed
-                                                </button>
+                                                quiz.resultsPublished ? (
+                                                    <button 
+                                                        onClick={() => navigate('/my-results')}
+                                                        className="w-full h-11 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white font-bold text-sm tracking-wider uppercase cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
+                                                    >
+                                                        📊 View Result
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        disabled
+                                                        className="w-full h-11 rounded-xl bg-green-50 text-green-700 border border-green-100 font-bold text-sm tracking-wider uppercase cursor-not-allowed flex items-center justify-center gap-2"
+                                                    >
+                                                        ✓ Completed
+                                                    </button>
+                                                )
                                             ) : isActive ? (
                                                 <button 
                                                     onClick={async () => {

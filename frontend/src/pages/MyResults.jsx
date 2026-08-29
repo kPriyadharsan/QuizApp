@@ -153,85 +153,118 @@ const MyResults = () => {
 
             {/* Submission Details Modal */}
             {selectedSubDetail && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: 20
-                }} onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}>
-                    <div style={{
-                        background: 'white', padding: 28, borderRadius: 24, maxWidth: 640, width: '100%',
-                        maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.15)'
-                    }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 16 }}>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}>
+                    <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col anim-up" onClick={e => e.stopPropagation()}>
+                        
+                        {/* Modal Header */}
+                        <div className="flex justify-between items-start p-6 sm:p-8 border-b border-slate-100 sticky top-0 bg-white z-10">
                             <div>
-                                <h3 style={{ fontWeight: 800, fontSize: 20, color: '#111', margin: 0 }}>{selectedSubDetail.quizId?.title}</h3>
-                                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: '4px 0 0' }}>
-                                    Score: <strong>{selectedSubDetail.score}</strong> · Submitted: {new Date(selectedSubDetail.submittedAt).toLocaleString()}
-                                </p>
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">{selectedSubDetail.quizId?.title}</h3>
+                                <div className="flex flex-wrap items-center gap-3 mt-2">
+                                    <span className="bg-indigo-50 text-[#6c63ff] px-3 py-1 rounded-full text-xs font-bold">
+                                        Score: {selectedSubDetail.score} / {selectedSubDetail.totalQuestions}
+                                    </span>
+                                    <span className="bg-slate-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium">
+                                        Submitted: {new Date(selectedSubDetail.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
                             </div>
-                            <button className="btn btn-ghost" onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}>✕ Close</button>
+                            <button 
+                                onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}
+                                className="text-gray-400 hover:text-gray-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors cursor-pointer"
+                            >
+                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        {/* Modal Body */}
+                        <div className="p-6 sm:p-8 space-y-6">
                             {!selectedSubDetail.quizId?.showCorrectAnswers && !selectedSubDetail.quizId?.showExplanations ? (
-                                <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.03)', borderRadius: 16 }}>
-                                    <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, margin: 0, fontWeight: 500 }}>
-                                        🔒 Correct answers and explanations are disabled for this quiz.
-                                    </p>
+                                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                    <span className="text-3xl mb-3 block">🔒</span>
+                                    <h4 className="text-base font-bold text-gray-800 mb-1">Detailed review locked</h4>
+                                    <p className="text-sm text-gray-500 max-w-sm mx-auto">Correct answers and explanations have not been published for this test yet.</p>
                                 </div>
                             ) : (
                                 expandedQuestions.map((q, idx) => {
                                     const studentAns = selectedSubDetail.answers?.find(a => a.questionId === q._id);
+                                    const isStudentCorrect = studentAns && studentAns.selectedOption === q.correctAnswer;
+                                    
                                     return (
-                                        <div key={q._id} style={{ padding: 18, borderRadius: 16, background: '#f8f9fa', border: '1px solid rgba(0,0,0,0.04)' }}>
-                                            <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 12 }}>
-                                                Q{idx + 1}. {q.question}
+                                        <div key={q._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4">
+                                            {/* Question Title & Status Badge */}
+                                            <div className="flex justify-between items-start gap-4">
+                                                <h4 className="text-sm sm:text-base font-extrabold text-gray-900 leading-snug">
+                                                    Q{idx + 1}. {q.question}
+                                                </h4>
+                                                {selectedSubDetail.quizId?.showCorrectAnswers && (
+                                                    isStudentCorrect ? (
+                                                        <span className="bg-green-50 text-green-600 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 flex-shrink-0">
+                                                            ✓ Correct
+                                                        </span>
+                                                    ) : (
+                                                        <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 flex-shrink-0">
+                                                            ✗ Incorrect
+                                                        </span>
+                                                    )
+                                                )}
                                             </div>
+
+                                            {/* Question Image */}
                                             {q.image && (
-                                                <img src={q.image} alt="Question" style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 10, marginBottom: 12, display: 'block' }} />
+                                                <div className="rounded-xl overflow-hidden border border-slate-100 max-h-60">
+                                                    <img src={q.image} alt="Question Graphic" className="w-full h-full object-contain" />
+                                                </div>
                                             )}
 
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, marginBottom: 12 }}>
+                                            {/* Options list */}
+                                            <div className="grid grid-cols-1 gap-3">
                                                 {q.options.map((opt, oIdx) => {
                                                     const isSelected = studentAns?.selectedOption === opt;
                                                     const isCorrectOpt = q.correctAnswer === opt;
                                                     
-                                                    let optColor = '#4a5568';
-                                                    let optWeight = 400;
-                                                    let optBg = 'transparent';
+                                                    let cardStyle = "border-slate-200/80 bg-slate-50 text-slate-700";
+                                                    let badgeElement = null;
 
                                                     if (selectedSubDetail.quizId?.showCorrectAnswers) {
                                                         if (isCorrectOpt) {
-                                                            optColor = '#1a7a3a';
-                                                            optWeight = 700;
-                                                            optBg = 'rgba(48,209,88,0.08)';
+                                                            cardStyle = "border-green-200 bg-green-50/70 text-green-800 ring-2 ring-green-500/20";
+                                                            badgeElement = <span className="ml-auto bg-green-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Correct Answer</span>;
                                                         } else if (isSelected) {
-                                                            optColor = '#cc000a';
-                                                            optWeight = 700;
-                                                            optBg = 'rgba(255,59,48,0.08)';
+                                                            cardStyle = "border-red-200 bg-red-50/70 text-red-800 ring-2 ring-red-500/20";
+                                                            badgeElement = <span className="ml-auto bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Your Selection</span>;
                                                         }
                                                     } else if (isSelected) {
-                                                        optColor = 'var(--brand-accent)';
-                                                        optWeight = 700;
-                                                        optBg = 'rgba(108,99,255,0.08)';
+                                                        cardStyle = "border-[#6c63ff]/30 bg-indigo-50/60 text-indigo-900";
+                                                        badgeElement = <span className="ml-auto bg-[#6c63ff] text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Selected</span>;
                                                     }
 
                                                     return (
-                                                        <div key={oIdx} style={{ padding: '8px 12px', borderRadius: 8, background: optBg, color: optColor, fontWeight: optWeight, display: 'flex', gap: 8 }}>
-                                                            <strong>{['A','B','C','D'][oIdx]}.</strong> {opt}
-                                                            {selectedSubDetail.quizId?.showCorrectAnswers && isCorrectOpt && ' ✓ (Correct)'}
-                                                            {isSelected && ' 👤 (Your Selection)'}
+                                                        <div 
+                                                            key={oIdx} 
+                                                            className={`flex items-center gap-3 p-3.5 rounded-xl border text-sm font-semibold transition-all ${cardStyle}`}
+                                                        >
+                                                            <span className="w-6 h-6 rounded-lg bg-white/80 border border-slate-200/50 flex items-center justify-center text-xs font-bold shadow-sm">
+                                                                {['A','B','C','D'][oIdx]}
+                                                            </span>
+                                                            <span className="flex-1 leading-normal">{opt}</span>
+                                                            {badgeElement}
                                                         </div>
                                                     );
                                                 })}
                                             </div>
 
+                                            {/* Explanation */}
                                             {selectedSubDetail.quizId?.showExplanations && q.explanation && (
-                                                <div style={{ borderTop: '1px dashed rgba(0,0,0,0.1)', paddingTop: 12, marginTop: 8 }}>
-                                                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand-accent)', textTransform: 'uppercase', marginBottom: 4 }}>Explanation</div>
-                                                    <div style={{ fontSize: 13, color: '#4a5568', lineHeight: 1.5 }}>{q.explanation}</div>
+                                                <div className="border-t border-slate-100 pt-4 mt-3 bg-slate-50/50 p-4 rounded-xl space-y-2">
+                                                    <span className="text-xs font-extrabold text-[#6c63ff] uppercase tracking-wider">Explanation</span>
+                                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{q.explanation}</p>
                                                     {q.explanationImage && (
-                                                        <img src={q.explanationImage} alt="Explanation" style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 10, marginTop: 8 }} />
+                                                        <div className="rounded-xl overflow-hidden border border-slate-100 max-h-48 mt-2">
+                                                            <img src={q.explanationImage} alt="Explanation Graphic" className="w-full h-full object-contain" />
+                                                        </div>
                                                     )}
                                                 </div>
                                             )}

@@ -186,7 +186,7 @@ const getUserState = async (quizIdStr, userIdStr) => {
 
 export const getActiveQuizzes = async (req, res) => {
     try {
-        const quizzes = await Quiz.find({ isActive: true }).lean();
+        const quizzes = await Quiz.find({ isActive: true, isArchived: { $ne: true } }).lean();
         
         // Find all attempts of the current user
         const attempts = await Attempt.find({ userId: req.user.id }).lean();

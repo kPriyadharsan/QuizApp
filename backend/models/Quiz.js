@@ -6,6 +6,7 @@ const quizSchema = new mongoose.Schema({
     duration: { type: Number, required: true }, // in minutes
     startTime: { type: Date, required: true },
     isActive: { type: Boolean, default: true },
+    isArchived: { type: Boolean, default: false },
     resultsPublished: { type: Boolean, default: false },
     leaderboardPublished: { type: Boolean, default: false },
     liveMonitoringEnabled: { type: Boolean, default: false },

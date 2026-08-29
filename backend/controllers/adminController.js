@@ -480,6 +480,40 @@ export const toggleLeaderboard = async (req, res) => {
     }
 };
 
+export const toggleArchiveQuiz = async (req, res) => {
+    try {
+        const { quizId } = req.body;
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+
+        quiz.isArchived = !quiz.isArchived;
+        await quiz.save();
+        invalidateQuizCache(quizId);
+        res.json({ message: `Quiz ${quiz.isArchived ? 'archived' : 'unarchived'} successfully`, quiz });
+    } catch (error) {
+        res.status(500).json({ message: 'Error toggling quiz archive status', error: error.message });
+    }
+};
+
+export const toggleAnswerKey = async (req, res) => {
+    try {
+        const { quizId } = req.body;
+        const quiz = await Quiz.findById(quizId);
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+
+        quiz.showCorrectAnswers = !quiz.showCorrectAnswers;
+        await quiz.save();
+        invalidateQuizCache(quizId);
+        res.json({ message: `Correct answers ${quiz.showCorrectAnswers ? 'enabled' : 'disabled'} successfully`, quiz });
+    } catch (error) {
+        res.status(500).json({ message: 'Error toggling answer key visibility', error: error.message });
+    }
+};
+
 export const blockUser = async (req, res) => {
     try {
         const { userId } = req.body;

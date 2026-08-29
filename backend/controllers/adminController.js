@@ -370,7 +370,7 @@ export const getUsers = async (req, res) => {
 
         const total = await User.countDocuments(query);
         const users = await User.find(query)
-            .select('name email score isBlocked createdAt registerNumber year department college otherCollegeName isApproved resetPasswordStatus')
+            .select('name email score isBlocked createdAt registerNumber year department college otherCollegeName isApproved resetPasswordStatus profileImage phoneNumber')
             .skip(skip)
             .limit(limit)
             .sort({ createdAt: -1 })

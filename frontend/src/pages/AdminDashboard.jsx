@@ -190,6 +190,7 @@ const AdminDashboard = () => {
     const [explanation, setExplanation] = useState('');
     const [explanationImage, setExplanationImage] = useState('');
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState(null);
     const [importedQuestions, setImportedQuestions] = useState([]);
     const { startGuide } = useGuide();
 
@@ -2452,12 +2453,23 @@ const AdminDashboard = () => {
                                         {users.map((u, i) => (
                                             <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', background: u.isBlocked ? 'rgba(255,69,58,0.02)' : 'transparent' }}>
                                                 <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{((usersPage - 1) * 10) + i + 1}</td>
-                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                                <td 
+                                                    style={{ padding: '14px 20px', fontWeight: 600, cursor: 'pointer' }}
+                                                    onClick={() => setSelectedStudent(u)}
+                                                >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent), #a29bfe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent), #a29bfe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0, overflow: 'hidden' }}>
+                                                            {u.profileImage ? (
+                                                                <img src={u.profileImage} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                u.name?.charAt(0).toUpperCase()
+                                                            )}
                                                         </div>
-                                                        {u.name}
+                                                        <span style={{ borderBottom: '1px dashed transparent', transition: 'border-color 0.2s' }}
+                                                              onMouseEnter={e => e.currentTarget.style.borderBottomColor = 'var(--brand-accent)'}
+                                                              onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
+                                                            {u.name}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
@@ -2509,12 +2521,23 @@ const AdminDashboard = () => {
                                         {pendingUsers.map((u, i) => (
                                             <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
                                                 <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{((pendingPage - 1) * 10) + i + 1}</td>
-                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                                <td 
+                                                    style={{ padding: '14px 20px', fontWeight: 600, cursor: 'pointer' }}
+                                                    onClick={() => setSelectedStudent(u)}
+                                                >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0, overflow: 'hidden' }}>
+                                                            {u.profileImage ? (
+                                                                <img src={u.profileImage} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                u.name?.charAt(0).toUpperCase()
+                                                            )}
                                                         </div>
-                                                        {u.name}
+                                                        <span style={{ borderBottom: '1px dashed transparent', transition: 'border-color 0.2s' }}
+                                                              onMouseEnter={e => e.currentTarget.style.borderBottomColor = 'var(--brand-accent)'}
+                                                              onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
+                                                            {u.name}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
@@ -2560,12 +2583,23 @@ const AdminDashboard = () => {
                                         {resetRequests.map((u, i) => (
                                             <tr key={u._id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
                                                 <td style={{ padding: '14px 20px', color: '#bbb', fontWeight: 600 }}>{((resetRequestsPage - 1) * 10) + i + 1}</td>
-                                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                                <td 
+                                                    style={{ padding: '14px 20px', fontWeight: 600, cursor: 'pointer' }}
+                                                    onClick={() => setSelectedStudent(u)}
+                                                >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: 12, flexShrink: 0, overflow: 'hidden' }}>
+                                                            {u.profileImage ? (
+                                                                <img src={u.profileImage} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                u.name?.charAt(0).toUpperCase()
+                                                            )}
                                                         </div>
-                                                        {u.name}
+                                                        <span style={{ borderBottom: '1px dashed transparent', transition: 'border-color 0.2s' }}
+                                                              onMouseEnter={e => e.currentTarget.style.borderBottomColor = 'var(--brand-accent)'}
+                                                              onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
+                                                            {u.name}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '14px 20px', color: 'var(--color-text-secondary)', fontSize: 12 }}>{u.email}</td>
@@ -2848,6 +2882,130 @@ const AdminDashboard = () => {
                             >
                                 📄 Export PDF / Print
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal for Student Profile Details */}
+            {selectedStudent && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)', zIndex: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+                }} onClick={() => setSelectedStudent(null)}>
+                    <div style={{
+                        ...neu.card, padding: 32, maxWidth: 480, width: '100%', background: 'white',
+                        borderRadius: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        maxHeight: '90vh', overflowY: 'auto', animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        position: 'relative', border: '1px solid rgba(0, 0, 0, 0.05)'
+                    }} onClick={e => e.stopPropagation()}>
+                        
+                        {/* Close button */}
+                        <button 
+                            onClick={() => setSelectedStudent(null)}
+                            style={{
+                                position: 'absolute', top: 20, right: 20,
+                                border: 'none', background: 'rgba(0,0,0,0.05)', width: 32, height: 32, borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                                color: '#4b5563', transition: 'all 0.2s', fontWeight: 800
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+                        >
+                            ✕
+                        </button>
+
+                        {/* Profile Avatar / Photo Banner */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, marginTop: 10 }}>
+                            <div style={{ 
+                                width: 110, height: 110, borderRadius: '50%', 
+                                background: 'linear-gradient(135deg, var(--brand-accent, #6c63ff), #a29bfe)', 
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                color: 'white', fontWeight: 800, fontSize: 36, flexShrink: 0,
+                                boxShadow: '0 10px 25px -5px rgba(108, 99, 255, 0.3)',
+                                overflow: 'hidden', border: '4px solid white'
+                            }}>
+                                {selectedStudent.profileImage ? (
+                                    <img src={selectedStudent.profileImage} alt={selectedStudent.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    selectedStudent.name?.charAt(0).toUpperCase()
+                                )}
+                            </div>
+                            <h3 style={{ fontWeight: 850, fontSize: 22, color: '#1e293b', marginTop: 16, marginBottom: 4, textAlign: 'center' }}>
+                                {selectedStudent.name}
+                            </h3>
+                            <span style={{ 
+                                fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+                                padding: '4px 12px', borderRadius: 100, 
+                                color: selectedStudent.role === 'admin' ? '#ef4444' : (selectedStudent.isApproved ? '#16a34a' : '#d97706'),
+                                background: selectedStudent.role === 'admin' ? '#fee2e2' : (selectedStudent.isApproved ? '#dcfce7' : '#fef3c7')
+                            }}>
+                                {selectedStudent.role === 'admin' ? 'Admin' : (selectedStudent.isApproved ? 'Approved Student' : 'Pending Verification')}
+                            </span>
+                        </div>
+
+                        {/* Details Grid */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: '#f8fafc', padding: 20, borderRadius: 16, border: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Registration Number</span>
+                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>{selectedStudent.registerNumber || '—'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Email Address</span>
+                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700, wordBreak: 'break-all', textAlign: 'right', marginLeft: 10 }}>{selectedStudent.email}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Year & Department</span>
+                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>
+                                    {selectedStudent.year ? `${selectedStudent.year} Year` : '—'} • {selectedStudent.department || '—'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Contact Number</span>
+                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>{selectedStudent.phoneNumber || '—'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Institution</span>
+                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700, textAlign: 'right' }}>
+                                    {selectedStudent.college === 'Others' ? selectedStudent.otherCollegeName || 'Others' : selectedStudent.college || '—'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Account Status</span>
+                                <span style={{ 
+                                    color: selectedStudent.isBlocked ? '#ef4444' : '#16a34a', 
+                                    fontSize: 13, fontWeight: 700 
+                                }}>
+                                    {selectedStudent.isBlocked ? '🚫 Blocked' : '✓ Active'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Modal Actions */}
+                        <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
+                            {selectedStudent.isApproved && selectedStudent.role !== 'admin' && (
+                                selectedStudent.isBlocked ? (
+                                    <NeuButton variant="success" onClick={async () => { await handleUnblockUser(selectedStudent._id); setSelectedStudent(prev => ({ ...prev, isBlocked: false })); }}>
+                                        Unblock Student
+                                    </NeuButton>
+                                ) : (
+                                    <NeuButton variant="danger" onClick={async () => { await handleBlockUser(selectedStudent._id); setSelectedStudent(prev => ({ ...prev, isBlocked: true })); }}>
+                                        Block Student
+                                    </NeuButton>
+                                )
+                            )}
+                            {!selectedStudent.isApproved && (
+                                <>
+                                    <NeuButton variant="danger" onClick={async () => { await handleRejectUser(selectedStudent._id); setSelectedStudent(null); }}>
+                                        ✕ Reject Request
+                                    </NeuButton>
+                                    <NeuButton variant="success" onClick={async () => { await handleApproveUser(selectedStudent._id); setSelectedStudent(null); }}>
+                                        ✓ Approve Student
+                                    </NeuButton>
+                                </>
+                            )}
+                            <NeuButton onClick={() => setSelectedStudent(null)}>Close</NeuButton>
                         </div>
                     </div>
                 </div>

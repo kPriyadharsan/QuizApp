@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { io } from 'socket.io-client';
@@ -2936,7 +2937,7 @@ const AdminDashboard = () => {
             )}
 
             {/* Modal for Student Profile Details */}
-            {selectedStudent && (
+            {selectedStudent && createPortal(
                 <div 
                     className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 sm:p-6"
                     onClick={() => setSelectedStudent(null)}
@@ -3035,7 +3036,8 @@ const AdminDashboard = () => {
                             <NeuButton onClick={() => setSelectedStudent(null)}>Close</NeuButton>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Guided Tour Component will render globally via GuideProvider */}

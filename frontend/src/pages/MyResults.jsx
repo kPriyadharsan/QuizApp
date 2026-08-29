@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,14 @@ const MyResults = () => {
     const [selectedSubDetail, setSelectedSubDetail] = useState(null);
     const [expandedQuestions, setExpandedQuestions] = useState([]);
 
+    // Detect screen size dynamically for fully responsive inline styling
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     useEffect(() => {
         axios.get(`${import.meta.env.VITE_API_URL}/api/quiz/my-results`, { headers: { Authorization: `Bearer ${user.token}` } })
             .then(r => setResults(r.data))
@@ -46,103 +55,167 @@ const MyResults = () => {
         : 0;
 
     if (loading) return (
-        <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 24 }} />)}
         </div>
     );
 
     return (
-        <div className="page-in" style={{ maxWidth: 720, margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 28 }}>
-                <div>
-                    <h1 style={{ fontSize: 'clamp(24px,5vw,32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>📈 My Progress</h1>
-                    <p style={{ color: 'var(--color-text-secondary)', fontSize: 15 }}>Review your academic performance</p>
+        <div 
+            className="page-in" 
+            style={{ 
+                maxWidth: '720px', 
+                margin: '0 auto', 
+                padding: isMobile ? '16px 16px 60px 16px' : '32px 24px 80px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px'
+            }}
+        >
+            {/* Header section */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ textAlign: isMobile ? 'center' : 'left', width: isMobile ? '100%' : 'auto' }}>
+                    <h1 style={{ fontSize: 'clamp(24px,5vw,32px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '6px' }}>📈 My Progress</h1>
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px', margin: 0 }}>Review your academic performance</p>
                 </div>
-                <button className="btn btn-ghost btn-pill" onClick={() => nav('/')} style={{ background: 'white', border: '1px solid rgba(0,0,0,0.08)' }}>← Dashboard</button>
+                <button 
+                    className="btn btn-ghost btn-pill" 
+                    onClick={() => nav('/')} 
+                    style={{ 
+                        background: 'white', 
+                        border: '1px solid rgba(0,0,0,0.08)', 
+                        padding: '8px 20px', 
+                        borderRadius: '100px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        margin: isMobile ? '12px auto 0 auto' : '0'
+                    }}
+                >
+                    ← Dashboard
+                </button>
             </div>
 
+            {/* Overall stats widget */}
             {results.length > 0 && (
-                <div style={{ 
-                    display: 'flex', alignItems: 'center', gap: 24, padding: '24px 32px', 
-                    background: 'white', borderRadius: 24, marginBottom: 32, 
-                    border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 12px 30px rgba(0,0,0,0.03)' 
-                }}>
-                    <div style={{ position: 'relative', width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div 
+                    style={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: 'center',
+                        textAlign: isMobile ? 'center' : 'left',
+                        gap: '20px',
+                        padding: isMobile ? '24px 20px' : '24px 32px',
+                        background: '#ffffff',
+                        borderRadius: '24px',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.02)'
+                    }}
+                >
+                    <div style={{ position: 'relative', width: '72px', height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <svg width="72" height="72" viewBox="0 0 72 72">
                             <circle cx="36" cy="36" r="32" fill="none" stroke="#f0f0f5" strokeWidth="8" />
                             <circle cx="36" cy="36" r="32" fill="none" stroke="var(--brand-accent)" strokeWidth="8" strokeDasharray={`${totalAverage * 2}, 200`} strokeLinecap="round" transform="rotate(-90 36 36)" />
                         </svg>
-                        <div style={{ position: 'absolute', fontWeight: 800, fontSize: 18, color: '#111' }}>{totalAverage}%</div>
+                        <div style={{ position: 'absolute', fontWeight: 800, fontSize: '18px', color: '#111' }}>{totalAverage}%</div>
                     </div>
-                    <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Overall Average</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#111' }}>
-                            {totalAverage >= 75 ? 'Outstanding Performance!' : totalAverage >= 50 ? 'Steady Progress' : 'Keep pushing forward!'}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overall Average</div>
+                        <div style={{ fontSize: '17px', fontWeight: 800, color: '#1c1c1e' }}>
+                            {totalAverage >= 75 ? 'Outstanding Performance! 👑' : totalAverage >= 50 ? 'Steady Progress ⭐' : 'Keep pushing forward! 💪'}
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* Quizzes List */}
             {results.length === 0 ? (
-                <div className="card" style={{ padding: '64px 32px', textAlign: 'center', borderRadius: 32 }}>
-                    <div style={{ fontSize: 48, marginBottom: 20 }}>📊</div>
-                    <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>Academic record empty</h3>
-                    <p style={{ color: 'var(--color-text-secondary)', fontSize: 15, marginBottom: 32, maxWidth: 360, margin: '0 auto 32px' }}>Complete your assigned quizzes to see your skills breakdown here.</p>
-                    <button className="btn btn-primary" style={{ padding: '14px 40px', borderRadius: 100 }} onClick={() => nav('/')}>Start Learning Now</button>
+                <div className="card" style={{ padding: '64px 24px', textAlign: 'center', borderRadius: '32px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
+                    <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>Academic record empty</h3>
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px', marginBottom: '32px', maxWidth: '360px', margin: '0 auto 32px' }}>Complete your assigned quizzes to see your skills breakdown here.</p>
+                    <button className="btn btn-primary" style={{ padding: '14px 40px', borderRadius: '100px', cursor: 'pointer' }} onClick={() => nav('/')}>Start Learning Now</button>
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {results.map((r, i) => {
                         const band = getBand(r.score, r.totalQuestions);
                         const pct = r.totalQuestions > 0 ? Math.round((r.score / r.totalQuestions) * 100) : 0;
                         return (
-                            <div key={r._id || i} className="card card-hover" style={{ padding: '24px', borderRadius: 24, cursor: 'pointer', animation: `pageIn 0.5s ease ${i * 0.08}s both` }} onClick={() => handleViewDetails(r._id)}>
-                                <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-                                    <div style={{ 
-                                        width: 56, height: 56, borderRadius: 18, background: band.bg, 
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 
-                                    }}>
-                                        {band.emoji}
+                            <div 
+                                key={r._id || i} 
+                                className="card card-hover" 
+                                style={{ 
+                                    padding: isMobile ? '20px' : '24px', 
+                                    borderRadius: '24px', 
+                                    cursor: 'pointer', 
+                                    display: 'flex',
+                                    flexDirection: isMobile ? 'column' : 'row',
+                                    alignItems: isMobile ? 'center' : 'flex-start',
+                                    textAlign: isMobile ? 'center' : 'left',
+                                    gap: isMobile ? '16px' : '20px',
+                                    border: '1px solid rgba(0,0,0,0.04)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.01)',
+                                    transition: 'all 0.2s ease',
+                                    animation: `pageIn 0.5s ease ${i * 0.08}s both`
+                                }} 
+                                onClick={() => handleViewDetails(r._id)}
+                            >
+                                <div 
+                                    style={{ 
+                                        width: '56px', 
+                                        height: '56px', 
+                                        borderRadius: '16px', 
+                                        background: band.bg, 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        fontSize: '24px',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    {band.emoji}
+                                </div>
+                                <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                                        <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#111', margin: 0, lineHeight: '1.4' }}>
+                                            {r.quizId?.title || 'General Quiz'}
+                                        </h3>
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-tertiary)' }}>
+                                            {(() => {
+                                                try {
+                                                    return new Date(r.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                                                } catch {
+                                                    return '';
+                                                }
+                                            })()}
+                                        </span>
                                     </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {r.quizId?.title || 'General Quiz'}
-                                            </h3>
-                                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-tertiary)' }}>
-                                                {(() => {
-                                                    try {
-                                                        return new Date(r.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                                    } catch {
-                                                        return '';
-                                                    }
-                                                })()}
-                                            </span>
+                                    
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                                        <div style={{ flex: 1, height: '8px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <div style={{ 
+                                                height: '100%', 
+                                                background: band.color, 
+                                                borderRadius: '10px',
+                                                width: `${pct}%`, 
+                                                transition: 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)' 
+                                            }} />
                                         </div>
-                                        
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            <div style={{ flex: 1, height: 6, background: '#f0f0f5', borderRadius: 10, overflow: 'hidden' }}>
-                                                <div style={{ 
-                                                    height: '100%', background: band.color, borderRadius: 10,
-                                                    width: `${pct}%`, transition: 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)' 
-                                                }} />
-                                            </div>
-                                            <div style={{ fontSize: 14, fontWeight: 800, color: band.color, minWidth: 40, textAlign: 'right' }}>
-                                                {r.score}/{r.totalQuestions}
-                                            </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: band.color, minWidth: '45px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                            {r.score} / {r.totalQuestions}
                                         </div>
-                                        
-                                        <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 100, background: band.bg, color: band.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                                {band.label}
-                                            </span>
-                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'rgba(0,0,0,0.04)', color: '#666' }}>
-                                                {pct}% Accuracy
-                                            </span>
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand-accent)', marginLeft: 'auto' }}>
-                                                Click to Review Questions →
-                                            </span>
-                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: '8px', marginTop: '4px', width: '100%' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 10px', borderRadius: '100px', background: band.bg, color: band.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            {band.label}
+                                        </span>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '100px', background: 'rgba(0,0,0,0.04)', color: '#666', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            {pct}% Accuracy
+                                        </span>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand-accent)', marginLeft: isMobile ? '0' : 'auto', marginTop: isMobile ? '6px' : '0', display: 'block', width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
+                                            Click to Review Questions →
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -151,41 +224,71 @@ const MyResults = () => {
                 </div>
             )}
 
-            {/* Submission Details Modal */}
-            {selectedSubDetail && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}>
-                    <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col anim-up" onClick={e => e.stopPropagation()}>
+            {/* Submission Details Modal - Rendered via Portal to body to cover the entire viewport */}
+            {selectedSubDetail && createPortal(
+                <div 
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                        background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                        zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '16px'
+                    }}
+                    onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}
+                >
+                    <div 
+                        style={{
+                            background: '#ffffff', borderRadius: '24px', width: '100%', maxWidth: '640px',
+                            maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid rgba(0,0,0,0.05)',
+                            position: 'relative'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
                         
                         {/* Modal Header */}
-                        <div className="flex justify-between items-start p-6 sm:p-8 border-b border-slate-100 sticky top-0 bg-white z-10">
-                            <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">{selectedSubDetail.quizId?.title}</h3>
-                                <div className="flex flex-wrap items-center gap-3 mt-2">
-                                    <span className="bg-indigo-50 text-[#6c63ff] px-3 py-1 rounded-full text-xs font-bold">
+                        <div 
+                            style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                                padding: isMobile ? '20px 16px' : '24px 24px 20px', borderBottom: '1px solid #f1f5f9',
+                                position: 'sticky', top: 0, background: '#ffffff', zIndex: 10
+                            }}
+                        >
+                            <div style={{ paddingRight: '20px' }}>
+                                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', lineHeight: '1.3' }}>
+                                    {selectedSubDetail.quizId?.title}
+                                </h3>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                                    <span style={{ background: '#eef2ff', color: '#6c63ff', padding: '4px 12px', borderRadius: '100px', fontSize: '11px', fontWeight: 700 }}>
                                         Score: {selectedSubDetail.score} / {selectedSubDetail.totalQuestions}
                                     </span>
-                                    <span className="bg-slate-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium">
+                                    <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 12px', borderRadius: '100px', fontSize: '11px', fontWeight: 600 }}>
                                         Submitted: {new Date(selectedSubDetail.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
                             </div>
                             <button 
                                 onClick={() => { setSelectedSubDetail(null); setExpandedQuestions([]); }}
-                                className="text-gray-400 hover:text-gray-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors cursor-pointer"
+                                style={{
+                                    border: 'none', background: '#f8fafc', color: '#94a3b8', width: '32px', height: '32px',
+                                    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', transition: 'all 0.2s', outline: 'none', flexShrink: 0
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
                             >
-                                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
 
                         {/* Modal Body */}
-                        <div className="p-6 sm:p-8 space-y-6">
+                        <div style={{ padding: isMobile ? '16px' : '24px', display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '20px' }}>
                             {!selectedSubDetail.quizId?.showCorrectAnswers && !selectedSubDetail.quizId?.showExplanations ? (
-                                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                    <span className="text-3xl mb-3 block">🔒</span>
-                                    <h4 className="text-base font-bold text-gray-800 mb-1">Detailed review locked</h4>
-                                    <p className="text-sm text-gray-500 max-w-sm mx-auto">Correct answers and explanations have not been published for this test yet.</p>
+                                <div style={{ padding: isMobile ? '24px 16px' : '36px 24px', textAlign: 'center', background: '#f8fafc', borderRadius: '20px', border: '1px dashed #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '32px' }}>🔒</span>
+                                    <h4 style={{ fontSize: '16px', fontWeight: 800, color: '#1e293b', margin: 0 }}>Detailed review locked</h4>
+                                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0, maxWidth: '280px', lineHeight: '1.5' }}>Correct answers and explanations have not been published for this test yet.</p>
                                 </div>
                             ) : (
                                 expandedQuestions.map((q, idx) => {
@@ -193,19 +296,19 @@ const MyResults = () => {
                                     const isStudentCorrect = studentAns && studentAns.selectedOption === q.correctAnswer;
                                     
                                     return (
-                                        <div key={q._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6 space-y-4">
+                                        <div key={q._id} style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid #e2e8f0', padding: isMobile ? '16px' : '20px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)' }}>
                                             {/* Question Title & Status Badge */}
-                                            <div className="flex justify-between items-start gap-4">
-                                                <h4 className="text-sm sm:text-base font-extrabold text-gray-900 leading-snug">
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                                                <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b', margin: 0, lineHeight: '1.4' }}>
                                                     Q{idx + 1}. {q.question}
                                                 </h4>
                                                 {selectedSubDetail.quizId?.showCorrectAnswers && (
                                                     isStudentCorrect ? (
-                                                        <span className="bg-green-50 text-green-600 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 flex-shrink-0">
+                                                        <span style={{ background: '#ecfdf5', color: '#059669', padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                                             ✓ Correct
                                                         </span>
                                                     ) : (
-                                                        <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 flex-shrink-0">
+                                                        <span style={{ background: '#fef2f2', color: '#dc2626', padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                                             ✗ Incorrect
                                                         </span>
                                                     )
@@ -214,42 +317,57 @@ const MyResults = () => {
 
                                             {/* Question Image */}
                                             {q.image && (
-                                                <div className="rounded-xl overflow-hidden border border-slate-100 max-h-60">
-                                                    <img src={q.image} alt="Question Graphic" className="w-full h-full object-contain" />
+                                                <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #f1f5f9', maxHeight: '240px', background: '#f8fafc', padding: '8px', display: 'flex', justifyContent: 'center' }}>
+                                                    <img src={q.image} alt="Question Graphic" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
                                                 </div>
                                             )}
 
                                             {/* Options list */}
-                                            <div className="grid grid-cols-1 gap-3">
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                 {q.options.map((opt, oIdx) => {
                                                     const isSelected = studentAns?.selectedOption === opt;
                                                     const isCorrectOpt = q.correctAnswer === opt;
                                                     
-                                                    let cardStyle = "border-slate-200/80 bg-slate-50 text-slate-700";
+                                                    let borderCol = '#e2e8f0';
+                                                    let bgCol = '#f8fafc';
+                                                    let textCol = '#334155';
+                                                    let extraStyle = {};
                                                     let badgeElement = null;
 
                                                     if (selectedSubDetail.quizId?.showCorrectAnswers) {
                                                         if (isCorrectOpt) {
-                                                            cardStyle = "border-green-200 bg-green-50/70 text-green-800 ring-2 ring-green-500/20";
-                                                            badgeElement = <span className="ml-auto bg-green-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Correct Answer</span>;
+                                                            borderCol = '#a7f3d0';
+                                                            bgCol = '#ecfdf5';
+                                                            textCol = '#065f46';
+                                                            extraStyle = { boxShadow: '0 0 0 2px rgba(16,185,129,0.1)' };
+                                                            badgeElement = <span style={{ marginLeft: 'auto', background: '#10b981', color: '#ffffff', fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '100px', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0, marginTop: '2px' }}>Correct Answer</span>;
                                                         } else if (isSelected) {
-                                                            cardStyle = "border-red-200 bg-red-50/70 text-red-800 ring-2 ring-red-500/20";
-                                                            badgeElement = <span className="ml-auto bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Your Selection</span>;
+                                                            borderCol = '#fca5a5';
+                                                            bgCol = '#fef2f2';
+                                                            textCol = '#991b1b';
+                                                            extraStyle = { boxShadow: '0 0 0 2px rgba(239,68,68,0.1)' };
+                                                            badgeElement = <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#ffffff', fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '100px', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0, marginTop: '2px' }}>Your Selection</span>;
                                                         }
                                                     } else if (isSelected) {
-                                                        cardStyle = "border-[#6c63ff]/30 bg-indigo-50/60 text-indigo-900";
-                                                        badgeElement = <span className="ml-auto bg-[#6c63ff] text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Selected</span>;
+                                                        borderCol = 'rgba(108,99,255,0.3)';
+                                                        bgCol = '#eef2ff';
+                                                        textCol = '#312e81';
+                                                        badgeElement = <span style={{ marginLeft: 'auto', background: '#6c63ff', color: '#ffffff', fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '100px', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0, marginTop: '2px' }}>Selected</span>;
                                                     }
 
                                                     return (
                                                         <div 
                                                             key={oIdx} 
-                                                            className={`flex items-center gap-3 p-3.5 rounded-xl border text-sm font-semibold transition-all ${cardStyle}`}
+                                                            style={{
+                                                                display: 'flex', alignItems: 'flex-start', gap: '12px', padding: isMobile ? '10px 12px' : '12px 16px',
+                                                                borderRadius: '12px', border: `1px solid ${borderCol}`, background: bgCol,
+                                                                color: textCol, fontSize: '13px', fontWeight: 600, ...extraStyle
+                                                            }}
                                                         >
-                                                            <span className="w-6 h-6 rounded-lg bg-white/80 border border-slate-200/50 flex items-center justify-center text-xs font-bold shadow-sm">
+                                                            <span style={{ width: '24px', height: '24px', borderRadius: '8px', background: '#ffffff', border: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, boxShadow: '0 1px 2px rgba(0,0,0,0.02)', flexShrink: 0, marginTop: '1px' }}>
                                                                 {['A','B','C','D'][oIdx]}
                                                             </span>
-                                                            <span className="flex-1 leading-normal">{opt}</span>
+                                                            <span style={{ flexGrow: 1, lineHeight: '1.4', wordBreak: 'break-word', marginTop: '3px' }}>{opt}</span>
                                                             {badgeElement}
                                                         </div>
                                                     );
@@ -258,12 +376,12 @@ const MyResults = () => {
 
                                             {/* Explanation */}
                                             {selectedSubDetail.quizId?.showExplanations && q.explanation && (
-                                                <div className="border-t border-slate-100 pt-4 mt-3 bg-slate-50/50 p-4 rounded-xl space-y-2">
-                                                    <span className="text-xs font-extrabold text-[#6c63ff] uppercase tracking-wider">Explanation</span>
-                                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{q.explanation}</p>
+                                                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#6c63ff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Explanation</span>
+                                                    <p style={{ fontSize: '13px', color: '#475569', margin: 0, lineHeight: '1.5' }}>{q.explanation}</p>
                                                     {q.explanationImage && (
-                                                        <div className="rounded-xl overflow-hidden border border-slate-100 max-h-48 mt-2">
-                                                            <img src={q.explanationImage} alt="Explanation Graphic" className="w-full h-full object-contain" />
+                                                        <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #f1f5f9', maxHeight: '200px', background: '#f8fafc', padding: '8px', display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                                            <img src={q.explanationImage} alt="Explanation Graphic" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
                                                         </div>
                                                     )}
                                                 </div>
@@ -274,7 +392,8 @@ const MyResults = () => {
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

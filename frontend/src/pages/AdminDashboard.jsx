@@ -960,24 +960,24 @@ const AdminDashboard = () => {
     };
 
     const handleToggleResults = async (quizId) => {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-results`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-results`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message || e.message || 'Error occurred'));
         setOpenDropdownId(null); fetchQuizzes();
     };
     const handleToggleLeaderboard = async (quizId) => {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-leaderboard`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-leaderboard`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message || e.message || 'Error occurred'));
         setOpenDropdownId(null); fetchQuizzes();
     };
     const handleToggleArchive = async (quizId) => {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/archive-quiz`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/archive-quiz`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message || e.message || 'Error occurred'));
         setOpenDropdownId(null); fetchQuizzes();
     };
     const handleToggleAnswers = async (quizId) => {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-answers`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/toggle-answers`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message || e.message || 'Error occurred'));
         setOpenDropdownId(null); fetchQuizzes();
     };
     const handleStopQuiz = async (quizId) => {
         if (!window.confirm('Stop this quiz? Users won\'t be able to take it anymore.')) return;
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/stop-quiz`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message));
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/stop-quiz`, { quizId }, { headers: { Authorization: `Bearer ${user.token}` } }).catch(e => alert(e.response?.data?.message || e.message || 'Error occurred'));
         setOpenDropdownId(null); fetchQuizzes();
     };
     const handleDeleteQuiz = async (quizId) => {

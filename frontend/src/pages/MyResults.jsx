@@ -238,7 +238,7 @@ const MyResults = () => {
                     <div 
                         style={{
                             background: '#ffffff', borderRadius: '24px', width: '100%', maxWidth: '640px',
-                            maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column',
+                            maxHeight: isMobile ? '82dvh' : '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column',
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid rgba(0,0,0,0.05)',
                             position: 'relative'
                         }}
@@ -283,7 +283,7 @@ const MyResults = () => {
                         </div>
 
                         {/* Modal Body */}
-                        <div style={{ padding: isMobile ? '16px' : '24px', display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '20px' }}>
+                        <div style={{ padding: isMobile ? '16px 16px 120px 16px' : '24px 24px 48px 24px', display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '20px' }}>
                             {!selectedSubDetail.quizId?.showCorrectAnswers && !selectedSubDetail.quizId?.showExplanations ? (
                                 <div style={{ padding: isMobile ? '24px 16px' : '36px 24px', textAlign: 'center', background: '#f8fafc', borderRadius: '20px', border: '1px dashed #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                                     <span style={{ fontSize: '32px' }}>🔒</span>

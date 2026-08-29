@@ -21,8 +21,8 @@ const PrivateRoute = ({ children, roles }) => {
 };
 
 const AppLoader = () => (
-  <div style={{
-    minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+  <div className="dvh-screen" style={{
+    display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center', gap: 16,
     background: 'linear-gradient(145deg,#f0f4ff 0%,#e8eeff 40%,#f5f0ff 100%)',
   }}>
@@ -56,7 +56,7 @@ const AccessDenied = () => {
 const BlockedScreen = () => {
   const { logout } = useAuth();
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--color-bg)' }}>
+    <div className="dvh-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--color-bg)' }}>
       <div className="card" style={{ maxWidth: 380, width: '100%', padding: '48px 32px', textAlign: 'center' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,59,48,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <svg width="36" height="36" fill="none" stroke="#ff3b30" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -107,7 +107,7 @@ const PendingApprovalScreen = () => {
   }, [checkStatus]);
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--color-bg)' }}>
+    <div className="dvh-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--color-bg)' }}>
       <div className="card anim-up" style={{ maxWidth: 400, width: '100%', padding: '48px 32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(108,99,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <span style={{ fontSize: 32 }}>⏳</span>
@@ -367,13 +367,13 @@ const AppShell = () => {
   if (!user) {
     // Auth pages: true full-screen, no header wrapper
     return (
-      <div style={{ minHeight: '100dvh', background: 'linear-gradient(145deg,#f0f4ff 0%,#e8eeff 40%,#f5f0ff 100%)' }}>
+      <div className="dvh-screen" style={{ background: 'linear-gradient(145deg,#f0f4ff 0%,#e8eeff 40%,#f5f0ff 100%)' }}>
         <AppRoutes />
       </div>
     );
   }
   return (
-    <div style={{ minHeight: '100dvh', background: 'linear-gradient(160deg,#f0f4ff 0%,#eef0ff 50%,#f5f0ff 100%)' }}>
+    <div className="dvh-screen" style={{ background: 'linear-gradient(160deg,#f0f4ff 0%,#eef0ff 50%,#f5f0ff 100%)' }}>
       <Header />
       <main className="page-wrap page-in">
         <AppRoutes />

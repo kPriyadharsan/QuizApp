@@ -71,15 +71,21 @@ body {
   color: var(--color-text-primary);
   line-height: 1.6;
   letter-spacing: -0.011em;
+  min-height: 100vh;
   min-height: 100dvh;
   overscroll-behavior: none;
+}
+
+.dvh-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ── Utility: Page shell ─────────────────────── */
 .page-wrap {
   max-width: var(--container);
   margin: 0 auto;
-  padding: 24px 24px 60px;
+  padding: 24px 24px 110px;
 }
 @media (min-width: 640px) { 
   .page-wrap { padding: 32px 32px 80px; } 
@@ -514,6 +520,7 @@ body {
 
 /* ── Full screen BG page ─────────────────────── */
 .fullscreen-page {
+  min-height: 100vh;
   min-height: 100dvh;
   display: flex; align-items: center; justify-content: center;
   padding: 20px;

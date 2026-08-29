@@ -2937,101 +2937,80 @@ const AdminDashboard = () => {
 
             {/* Modal for Student Profile Details */}
             {selectedStudent && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)', zIndex: 9999,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-                }} onClick={() => setSelectedStudent(null)}>
-                    <div style={{
-                        ...neu.card, padding: 32, maxWidth: 480, width: '100%', background: 'white',
-                        borderRadius: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                        maxHeight: '90vh', overflowY: 'auto', animation: 'modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                        position: 'relative', border: '1px solid rgba(0, 0, 0, 0.05)'
-                    }} onClick={e => e.stopPropagation()}>
+                <div 
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 sm:p-6"
+                    onClick={() => setSelectedStudent(null)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 flex flex-col relative border border-slate-100 anim-up"
+                        onClick={e => e.stopPropagation()}
+                    >
                         
                         {/* Close button */}
                         <button 
                             onClick={() => setSelectedStudent(null)}
-                            style={{
-                                position: 'absolute', top: 20, right: 20,
-                                border: 'none', background: 'rgba(0,0,0,0.05)', width: 32, height: 32, borderRadius: '50%',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                color: '#4b5563', transition: 'all 0.2s', fontWeight: 800
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+                            className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer font-bold border-none outline-none"
                         >
                             ✕
                         </button>
 
                         {/* Profile Avatar / Photo Banner */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, marginTop: 10 }}>
-                            <div style={{ 
-                                width: 110, height: 110, borderRadius: '50%', 
-                                background: 'linear-gradient(135deg, var(--brand-accent, #6c63ff), #a29bfe)', 
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                color: 'white', fontWeight: 800, fontSize: 36, flexShrink: 0,
-                                boxShadow: '0 10px 25px -5px rgba(108, 99, 255, 0.3)',
-                                overflow: 'hidden', border: '4px solid white'
-                            }}>
+                        <div className="flex flex-col items-center mb-6 mt-2">
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-br from-[#6c63ff] to-[#a29bfe] flex items-center justify-center text-white font-extrabold text-3xl sm:text-4xl shadow-lg overflow-hidden border-4 border-white flex-shrink-0">
                                 {selectedStudent.profileImage ? (
-                                    <img src={selectedStudent.profileImage} alt={selectedStudent.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <img src={selectedStudent.profileImage} alt={selectedStudent.name} className="w-full h-full object-cover" />
                                 ) : (
                                     selectedStudent.name?.charAt(0).toUpperCase()
                                 )}
                             </div>
-                            <h3 style={{ fontWeight: 850, fontSize: 22, color: '#1e293b', marginTop: 16, marginBottom: 4, textAlign: 'center' }}>
+                            <h3 className="font-extrabold text-xl sm:text-2xl text-slate-800 mt-4 mb-1.5 text-center leading-snug">
                                 {selectedStudent.name}
                             </h3>
-                            <span style={{ 
-                                fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
-                                padding: '4px 12px', borderRadius: 100, 
-                                color: selectedStudent.role === 'admin' ? '#ef4444' : (selectedStudent.isApproved ? '#16a34a' : '#d97706'),
-                                background: selectedStudent.role === 'admin' ? '#fee2e2' : (selectedStudent.isApproved ? '#dcfce7' : '#fef3c7')
-                            }}>
+                            <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full ${
+                                selectedStudent.role === 'admin' 
+                                    ? 'bg-red-50 text-red-650' 
+                                    : (selectedStudent.isApproved ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600')
+                            }`}>
                                 {selectedStudent.role === 'admin' ? 'Admin' : (selectedStudent.isApproved ? 'Approved Student' : 'Pending Verification')}
                             </span>
                         </div>
 
                         {/* Details Grid */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: '#f8fafc', padding: 20, borderRadius: 16, border: '1px solid #f1f5f9' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
-                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Registration Number</span>
-                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>{selectedStudent.registerNumber || '—'}</span>
+                        <div className="flex flex-col gap-3.5 bg-slate-50/50 p-4 sm:p-5 rounded-2xl border border-slate-100/80">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-slate-100/60 pb-2.5 gap-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Registration Number</span>
+                                <span className="text-sm font-extrabold text-slate-700">{selectedStudent.registerNumber || '—'}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
-                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Email Address</span>
-                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700, wordBreak: 'break-all', textAlign: 'right', marginLeft: 10 }}>{selectedStudent.email}</span>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-slate-100/60 pb-2.5 gap-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</span>
+                                <span className="text-sm font-extrabold text-slate-700 break-all sm:text-right">{selectedStudent.email}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
-                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Year & Department</span>
-                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-slate-100/60 pb-2.5 gap-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Year & Department</span>
+                                <span className="text-sm font-extrabold text-slate-700">
                                     {selectedStudent.year ? `${selectedStudent.year} Year` : '—'} • {selectedStudent.department || '—'}
                                 </span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
-                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Contact Number</span>
-                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700 }}>{selectedStudent.phoneNumber || '—'}</span>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-slate-100/60 pb-2.5 gap-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contact Number</span>
+                                <span className="text-sm font-extrabold text-slate-700">{selectedStudent.phoneNumber || '—'}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
-                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Institution</span>
-                                <span style={{ color: '#1e293b', fontSize: 13, fontWeight: 700, textAlign: 'right' }}>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-slate-100/60 pb-2.5 gap-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Institution</span>
+                                <span className="text-sm font-extrabold text-slate-700 sm:text-right">
                                     {selectedStudent.college === 'Others' ? selectedStudent.otherCollegeName || 'Others' : selectedStudent.college || '—'}
                                 </span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: '#64748b', fontSize: 13, fontWeight: 600 }}>Account Status</span>
-                                <span style={{ 
-                                    color: selectedStudent.isBlocked ? '#ef4444' : '#16a34a', 
-                                    fontSize: 13, fontWeight: 700 
-                                }}>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Account Status</span>
+                                <span className={`text-sm font-extrabold ${selectedStudent.isBlocked ? 'text-red-650' : 'text-green-600'}`}>
                                     {selectedStudent.isBlocked ? '🚫 Blocked' : '✓ Active'}
                                 </span>
                             </div>
                         </div>
 
                         {/* Modal Actions */}
-                        <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
+                        <div className="flex flex-col sm:flex-row gap-2.5 mt-6 sm:justify-end">
                             {selectedStudent.isApproved && selectedStudent.role !== 'admin' && (
                                 selectedStudent.isBlocked ? (
                                     <NeuButton variant="success" onClick={async () => { await handleUnblockUser(selectedStudent._id); setSelectedStudent(prev => ({ ...prev, isBlocked: false })); }}>
@@ -3046,10 +3025,10 @@ const AdminDashboard = () => {
                             {!selectedStudent.isApproved && (
                                 <>
                                     <NeuButton variant="danger" onClick={async () => { await handleRejectUser(selectedStudent._id); setSelectedStudent(null); }}>
-                                        ✕ Reject Request
+                                        ✕ Reject
                                     </NeuButton>
                                     <NeuButton variant="success" onClick={async () => { await handleApproveUser(selectedStudent._id); setSelectedStudent(null); }}>
-                                        ✓ Approve Student
+                                        ✓ Approve
                                     </NeuButton>
                                 </>
                             )}
